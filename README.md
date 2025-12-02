@@ -1,0 +1,58 @@
+# Event Sourcing Shopping Cart API
+
+This project implements a shopping cart API using event sourcing and clean architecture principles in Go. It provides a basic structure for managing shopping carts, allowing items to be added, removed, and checked out while maintaining a record of actions taken on the cart.
+
+## Directory Structure
+
+- `internal/api/`: Contains the main API logic.
+
+## Key Components
+
+### CartAggregate
+
+The `CartAggregate` represents the main business logic of the shopping cart. It controls how items are added or removed and manages the checkout process. The aggregate ensures that business rules are enforced (e.g., preventing changes to a checked-out cart).
+
+#### Key Methods:
+- `NewCartAggregate(cartID int)`: Initializes a new cart.
+- `Add(itemID int)`: Adds an item to the cart.
+- `Remove(itemID int)`: Removes an item from the cart.
+- `Checkout()`: Finalizes the cart for checkout.
+
+### Events
+
+The API utilizes various event types that represent the changes in the shopping cart state:
+- `cart.created`: Triggered when a new cart is created.
+- `cart.item_added`: Triggered when an item is added to the cart.
+- `cart.item_removed`: Triggered when an item is removed from the cart.
+- `cart.checked_out`: Triggered when the cart is checked out.
+
+### Repositories
+
+The `CartRepository` interface defines methods for cart operations, such as creating a new cart, retrieving an existing cart, and saving changes to the cart.
+
+#### PGCartRepository
+
+The `PGCartRepository` is a PostgreSQL implementation that interacts with the database to persist cart information.
+
+### Route Handlers
+
+The API provides several endpoints to interact with the shopping cart:
+- `GET /healthz`: Checks the health of the API.
+- `GET /cart/{cartID}`: Retrieves the details of a specific cart.
+- `GET /cart/{cartID}/{itemID}`: Adds an item to a specific cart.
+- `GET /cart/{cartID}/{itemID}/delete`: Removes an item from a specific cart.
+- `GET /checkout/{cartID}`: Completes the checkout process for a specific cart.
+
+### Use Cases
+
+The `ShoppingCartUseCase` struct handles the application logic for cart operations, ensuring that the correct repository methods are called in response to user actions.
+
+## Further ideas
+- [ ] Implement event sourcing projections
+- [ ] Write a round-robin load balancer
+- [ ] Write unit tests at every layer of the stack
+- [ ] Load testing script to simulate high traffic scenarios
+
+## Conclusion
+
+This project provides an example of an event-sourced shopping cart API. It demonstrates how aggregates, events, and repositories can be structured to maintain the integrity of the cart across multiple operations, aligning with modern software development principles.
