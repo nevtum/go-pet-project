@@ -72,7 +72,16 @@ func (p *Projection) ApplyMigration(ctx context.Context) error {
 }
 
 func (p *Projection) LatestPosition(ctx context.Context) (int64, error) {
-	return 0, nil
+	var position int64
+	err := p.pool.QueryRow(ctx, `
+		SELECT position
+		FROM inventory_projection.last_processed_position
+		LIMIT 1
+	`).Scan(&position)
+	if err != nil {
+		return 0, fmt.Errorf("read latest position: %w", err)
+	}
+	return position, nil
 }
 
 func (p *Projection) SubscribedEvents() []es.EventType {
