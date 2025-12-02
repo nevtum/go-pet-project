@@ -22,6 +22,7 @@ func (p *Projection) SubscribedEvents() []es.EventType {
 	return []es.EventType{
 		api.ItemAddedToCart,
 		api.ItemRemovedFromCart,
+		api.CartCheckedOut,
 	}
 }
 
@@ -84,6 +85,120 @@ func (p *Projection) LatestPosition(ctx context.Context) (int64, error) {
 	return position, nil
 }
 
+// TODO: Resolve bugs where in some cases checked out carts are
+// not properly handled and lead to incorrect inventory levels.
 func (p *Projection) Apply(ctx context.Context, events ...es.Event) error {
-	return errors.New("not implemented")
+	if len(events) == 0 {
+		return nil
+	}
+
+	// Step 1: Analyze all events
+	// Map of (cart_id, item_id) -> net quantity change
+	itemChanges := make(map[[2]int]int)
+	// Set of cart_ids that have been checked out
+	checkedOutCarts := make(map[int]bool)
+	// Track max position for tracking processed events
+	maxPosition := int64(0)
+
+	for _, event := range events {
+		if event.Position > maxPosition {
+			maxPosition = event.Position
+		}
+
+		switch event.Type {
+		case api.ItemAddedToCart:
+			itemID, err := extractItemID(event.Data)
+			if err != nil {
+				return fmt.Errorf("extract item_id from ItemAddedToCart event: %w", err)
+			}
+			key := [2]int{event.AggregateID, itemID}
+			itemChanges[key]++
+		case api.ItemRemovedFromCart:
+			itemID, err := extractItemID(event.Data)
+			if err != nil {
+				return fmt.Errorf("extract item_id from ItemRemovedFromCart event: %w", err)
+			}
+			key := [2]int{event.AggregateID, itemID}
+			itemChanges[key]--
+		case api.CartCheckedOut:
+			checkedOutCarts[event.AggregateID] = true
+		}
+	}
+
+	// Step 2: Open a db transaction
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Step 3 & 4: For each item change, update or insert the record in the database
+	for key, quantityChange := range itemChanges {
+		cartID, itemID := key[0], key[1]
+		isCheckedOut := checkedOutCarts[cartID]
+
+		// Try to update existing record
+		result, err := tx.Exec(ctx, `
+			UPDATE inventory_projection.cart_items
+			SET quantity = quantity + $1, checked_out = checked_out OR $2
+			WHERE cart_id = $3 AND item_id = $4
+		`, quantityChange, isCheckedOut, cartID, itemID)
+		if err != nil {
+			return fmt.Errorf("update cart_items: %w", err)
+		}
+
+		// If no rows were updated, insert a new record
+		if result.RowsAffected() == 0 {
+			_, err := tx.Exec(ctx, `
+				INSERT INTO inventory_projection.cart_items (cart_id, item_id, quantity, checked_out)
+				VALUES ($1, $2, $3, $4)
+			`, cartID, itemID, quantityChange, isCheckedOut)
+			if err != nil {
+				return fmt.Errorf("insert cart_items: %w", err)
+			}
+		}
+	}
+
+	// Update the last processed position
+	_, err = tx.Exec(ctx, `
+		UPDATE inventory_projection.last_processed_position
+		SET position = $1
+	`, maxPosition)
+	if err != nil {
+		return fmt.Errorf("update last_processed_position: %w", err)
+	}
+
+	// Step 5: Commit the transaction
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// extractItemID extracts the item_id from event data.
+// It handles both map[string]int (direct type) and map[string]any (JSON deserialized).
+func extractItemID(data any) (int, error) {
+	// Try map[string]int first (direct type)
+	if dataMap, ok := data.(map[string]int); ok {
+		if id, ok := dataMap["item_id"]; ok {
+			return id, nil
+		}
+		return 0, errors.New("missing item_id in event data")
+	}
+
+	// Try map[string]any (for JSON deserialized events)
+	if dataAny, ok := data.(map[string]any); ok {
+		if v, ok := dataAny["item_id"]; ok {
+			switch id := v.(type) {
+			case float64:
+				return int(id), nil
+			case int:
+				return id, nil
+			}
+		}
+		return 0, errors.New("missing or invalid item_id in event data")
+	}
+
+	return 0, errors.New("invalid event data type")
 }
