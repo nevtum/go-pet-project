@@ -10,9 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func dbPool() *pgxpool.Pool {
+func dbPool(ctx context.Context) *pgxpool.Pool {
 	// Initialize the connection pool
-	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, "postgres://myuser:mypassword@localhost:15432/mydatabase")
 
 	if err != nil {
@@ -30,15 +29,14 @@ func dbPool() *pgxpool.Pool {
 }
 
 func main() {
-	pool := dbPool()
-	stream := es.NewEventStream(pool, 10000)
-	projectionWriter := inventory.NewProjection(pool)
 	ctx := context.Background()
-	err := stream.Subscribe(ctx, projectionWriter)
 
-	if err != nil {
-		log.Fatal("Unable to subscribe to event stream:", err)
+	pool := dbPool(ctx)
+	stream := es.NewEventStream(pool)
+	projectionWriter := inventory.NewProjection(pool)
+	subscription := es.NewSubscription(projectionWriter, 25)
+
+	if err := subscription.Listen(ctx, stream); err != nil {
+		log.Fatal("Unable to listen to event stream:", err)
 	}
-
-	fmt.Println("Hello, World!")
 }
