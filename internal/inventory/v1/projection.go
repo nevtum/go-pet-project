@@ -1,4 +1,4 @@
-package inventory
+package v1
 
 import (
 	"context"
@@ -32,11 +32,11 @@ func (p *Projection) ApplyMigration(ctx context.Context) error {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 
-	tx.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS inventory_projection;`)
+	tx.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS inventory_v1;`)
 
 	// Create cart_items table
 	tx.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS inventory_projection.cart_items (
+		CREATE TABLE IF NOT EXISTS inventory_v1.cart_items (
 			cart_id INTEGER NOT NULL,
 			item_id INTEGER NOT NULL,
 			quantity INTEGER NOT NULL,
@@ -46,22 +46,22 @@ func (p *Projection) ApplyMigration(ctx context.Context) error {
 
 		-- Index to help with querying total quantity of sold items by item_id
 		CREATE INDEX IF NOT EXISTS idx_inventory_item_sold
-		ON inventory_projection.cart_items (item_id, checked_out)
+		ON inventory_v1.cart_items (item_id, checked_out)
 		WHERE checked_out = true;
 	`)
 
 	// Create last_processed_position table
 	tx.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS inventory_projection.last_processed_position (
+		CREATE TABLE IF NOT EXISTS inventory_v1.last_processed_position (
 			position INTEGER NOT NULL,
 			CONSTRAINT single_row CHECK (position >= 0)
 		);
 
 		-- Ensure only one row exists
-		INSERT INTO inventory_projection.last_processed_position (position)
+		INSERT INTO inventory_v1.last_processed_position (position)
 		SELECT 0
 		WHERE NOT EXISTS (
-			SELECT 1 FROM inventory_projection.last_processed_position
+			SELECT 1 FROM inventory_v1.last_processed_position
 		);
 	`)
 
@@ -76,7 +76,7 @@ func (p *Projection) LatestPosition(ctx context.Context) (int64, error) {
 	var position int64
 	err := p.pool.QueryRow(ctx, `
 		SELECT position
-		FROM inventory_projection.last_processed_position
+		FROM inventory_v1.last_processed_position
 		LIMIT 1
 	`).Scan(&position)
 	if err != nil {
@@ -139,7 +139,7 @@ func (p *Projection) Apply(ctx context.Context, events ...es.Event) error {
 
 		// Try to update existing record
 		result, err := tx.Exec(ctx, `
-			UPDATE inventory_projection.cart_items
+			UPDATE inventory_v1.cart_items
 			SET quantity = quantity + $1, checked_out = checked_out OR $2
 			WHERE cart_id = $3 AND item_id = $4
 		`, quantityChange, isCheckedOut, cartID, itemID)
@@ -150,7 +150,7 @@ func (p *Projection) Apply(ctx context.Context, events ...es.Event) error {
 		// If no rows were updated, insert a new record
 		if result.RowsAffected() == 0 {
 			_, err := tx.Exec(ctx, `
-				INSERT INTO inventory_projection.cart_items (cart_id, item_id, quantity, checked_out)
+				INSERT INTO inventory_v1.cart_items (cart_id, item_id, quantity, checked_out)
 				VALUES ($1, $2, $3, $4)
 			`, cartID, itemID, quantityChange, isCheckedOut)
 			if err != nil {
@@ -161,7 +161,7 @@ func (p *Projection) Apply(ctx context.Context, events ...es.Event) error {
 
 	// Update the last processed position
 	_, err = tx.Exec(ctx, `
-		UPDATE inventory_projection.last_processed_position
+		UPDATE inventory_v1.last_processed_position
 		SET position = $1
 	`, maxPosition)
 	if err != nil {

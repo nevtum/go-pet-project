@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"es/internal/es"
-	"es/internal/inventory"
+	v1 "es/internal/inventory/v1"
+	v2 "es/internal/inventory/v2"
 	"fmt"
 	"log"
 
@@ -33,10 +34,13 @@ func main() {
 
 	pool := dbPool(ctx)
 	stream := es.NewEventStream(pool)
-	projectionWriter := inventory.NewProjection(pool)
-	subscription := es.NewSubscription(projectionWriter, 25)
+	var batchSize int64 = 25
 
-	if err := subscription.Listen(ctx, stream); err != nil {
+	if err := es.NewSubscription(v1.NewProjection(pool), batchSize).Listen(ctx, stream); err != nil {
+		log.Fatal("Unable to listen to event stream:", err)
+	}
+
+	if err := es.NewSubscription(v2.NewProjection(pool), batchSize).Listen(ctx, stream); err != nil {
 		log.Fatal("Unable to listen to event stream:", err)
 	}
 }
