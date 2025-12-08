@@ -1,10 +1,8 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 )
 
 type RouteHandler struct {
@@ -17,117 +15,89 @@ func NewShoppingCartHandler(repository CartRepository) http.Handler {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", h.Health)
-	mux.HandleFunc("GET /cart/{cartID}", h.GetCartDetails)
-	mux.HandleFunc("GET /cart/{cartID}/{itemID}", h.AddItem)
-	mux.HandleFunc("GET /cart/{cartID}/{itemID}/delete", h.RemoveItem)
-	mux.HandleFunc("GET /checkout/{cartID}", h.Checkout)
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "Healthy!")
+	})
+	mux.HandleFunc("GET /cart/{cartID}", ToHandleFunc(h.GetCartDetails))
+	mux.HandleFunc("GET /cart/{cartID}/{itemID}", ToHandleFunc(h.AddItem))
+	mux.HandleFunc("GET /cart/{cartID}/{itemID}/delete", ToHandleFunc(h.RemoveItem))
+	mux.HandleFunc("GET /checkout/{cartID}", ToHandleFunc(h.Checkout))
 
 	return mux
 }
 
-func (h *RouteHandler) Health(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Healthy!")
+func (h *RouteHandler) GetCartDetails(c *ApiContext) error {
+	cartID, err := c.IntParam("cartID")
+
+	if err != nil {
+		return c.BadRequest(err)
+	}
+
+	cart, err := h.usecase.GetCartDetails(c.RequestContext(), cartID)
+	if err != nil {
+		return err
+	}
+
+	return c.OK().JSON(cart)
 }
 
-func (h *RouteHandler) GetCartDetails(w http.ResponseWriter, r *http.Request) {
-	cartID, err := convertToInt("cartID", r.PathValue("cartID"))
+func (h *RouteHandler) AddItem(c *ApiContext) error {
+	cartID, err := c.IntParam("cartID")
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return c.BadRequest(err)
 	}
 
-	cart, err := h.usecase.GetCartDetails(r.Context(), cartID)
+	itemID, err := c.IntParam("itemID")
+
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(cart)
+	cart, err := h.usecase.AddItemToCart(c.RequestContext(), cartID, itemID)
+
+	if err != nil {
+		return err
+	}
+
+	return c.OK().JSON(cart)
 }
 
-func (h *RouteHandler) AddItem(w http.ResponseWriter, r *http.Request) {
-	cartID, err := convertToInt("cartID", r.PathValue("cartID"))
+func (h *RouteHandler) RemoveItem(c *ApiContext) error {
+	cartID, err := c.IntParam("cartID")
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return c.BadRequest(err)
 	}
 
-	itemID, err := convertToInt("itemID", r.PathValue("itemID"))
+	itemID, err := c.IntParam("itemID")
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 
-	cart, err := h.usecase.AddItemToCart(r.Context(), cartID, itemID)
+	cart, err := h.usecase.RemoveItemFromCart(c.RequestContext(), cartID, itemID)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(cart)
+	return c.OK().JSON(cart)
 }
 
-func (h *RouteHandler) RemoveItem(w http.ResponseWriter, r *http.Request) {
-	cartID, err := convertToInt("cartID", r.PathValue("cartID"))
+func (h *RouteHandler) Checkout(c *ApiContext) error {
+	cartID, err := c.IntParam("cartID")
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return c.BadRequest(err)
 	}
 
-	itemID, err := convertToInt("itemID", r.PathValue("itemID"))
+	cart, err := h.usecase.Checkout(c.RequestContext(), cartID)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 
-	cart, err := h.usecase.RemoveItemFromCart(r.Context(), cartID, itemID)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(cart)
-}
-
-func (h *RouteHandler) Checkout(w http.ResponseWriter, r *http.Request) {
-	cartID, err := convertToInt("cartID", r.PathValue("cartID"))
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	cart, err := h.usecase.Checkout(r.Context(), cartID)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(cart)
-}
-
-func convertToInt(key string, value string) (int, error) {
-	if value == "" {
-		return 0, fmt.Errorf("%s is required", key)
-	}
-
-	intVal, err := strconv.Atoi(value)
-	if err != nil {
-		return 0, fmt.Errorf("invalid %s", key)
-	}
-	return intVal, nil
+	return c.OK().JSON(cart)
 }
