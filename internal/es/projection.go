@@ -21,7 +21,11 @@ type Subscription struct {
 	refreshInterval time.Duration
 }
 
-func NewSubscription(writer ProjectionWriter, batchSize int64, refreshInterval time.Duration) *Subscription {
+func NewSubscription(
+	writer ProjectionWriter,
+	batchSize int64,
+	refreshInterval time.Duration,
+) *Subscription {
 	return &Subscription{
 		writer:          writer,
 		batchSize:       batchSize,
@@ -30,11 +34,6 @@ func NewSubscription(writer ProjectionWriter, batchSize int64, refreshInterval t
 }
 
 func (bp *Subscription) Listen(ctx context.Context, stream *EventStream) error {
-	subscribedEvents := bp.writer.SubscribedEvents()
-
-	if len(subscribedEvents) == 0 {
-		return errors.New("projection must subscribe to at least one event")
-	}
 
 	if err := bp.writer.ApplyMigration(ctx); err != nil {
 		return fmt.Errorf("failed to apply migration: %w", err)
@@ -43,11 +42,6 @@ func (bp *Subscription) Listen(ctx context.Context, stream *EventStream) error {
 	lastPosition, err := bp.writer.LatestPosition(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get latest position: %w", err)
-	}
-
-	maxPosition, err := stream.GetMaxPosition(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get max position: %w", err)
 	}
 
 	ticker := time.NewTicker(bp.refreshInterval)
@@ -63,13 +57,7 @@ func (bp *Subscription) Listen(ctx context.Context, stream *EventStream) error {
 			)
 			return nil
 		case <-ticker.C:
-			if err := bp.Refresh(
-				ctx,
-				stream,
-				lastPosition,
-				maxPosition,
-				subscribedEvents,
-			); err != nil {
+			if err := bp.Refresh(ctx, stream, lastPosition); err != nil {
 				return fmt.Errorf(
 					"%s failed to refresh subscription: %w",
 					bp.writer.Name(),
@@ -83,23 +71,31 @@ func (bp *Subscription) Listen(ctx context.Context, stream *EventStream) error {
 func (bp *Subscription) Refresh(
 	ctx context.Context,
 	stream *EventStream,
-	lastPosition, maxPosition int64,
-	subscribedEvents []EventType,
+	lastPosition int64,
 ) error {
-	startPos := lastPosition
+	subscribedEvents := bp.writer.SubscribedEvents()
+
+	if len(subscribedEvents) == 0 {
+		return errors.New("projection must subscribe to at least one event")
+	}
+
+	maxPosition, err := stream.GetMaxPosition(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get max position: %w", err)
+	}
+
 	for lastPosition < maxPosition {
+		nextPosition := min(lastPosition+bp.batchSize+1, maxPosition)
 		events, err := stream.GetEvents(
 			ctx,
 			lastPosition,
-			lastPosition+bp.batchSize,
+			nextPosition,
 			subscribedEvents,
 		)
 
 		if err != nil {
 			return fmt.Errorf("failed to get events: %w", err)
 		}
-
-		lastPosition += bp.batchSize + 1
 
 		if len(events) == 0 {
 			continue
@@ -108,8 +104,10 @@ func (bp *Subscription) Refresh(
 		if err := bp.writer.Apply(ctx, events...); err != nil {
 			return fmt.Errorf("failed to apply events: %w", err)
 		}
+
+		lastPosition = nextPosition
 	}
 
-	fmt.Printf("%s processed %d events\n", bp.writer.Name(), lastPosition-startPos)
+	fmt.Printf("%s position=%d\n", bp.writer.Name(), lastPosition)
 	return nil
 }
