@@ -34,7 +34,6 @@ func NewSubscription(
 }
 
 func (bp *Subscription) Listen(ctx context.Context, stream *EventStream) error {
-
 	if err := bp.writer.ApplyMigration(ctx); err != nil {
 		return fmt.Errorf("failed to apply migration: %w", err)
 	}
