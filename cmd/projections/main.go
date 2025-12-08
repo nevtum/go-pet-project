@@ -28,8 +28,8 @@ func main() {
 
 	wg := sync.WaitGroup{}
 
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		sub := es.NewSubscription(
 			v1.NewProjection(pool),
@@ -39,8 +39,8 @@ func main() {
 		util.MustSucceed(sub.Listen(ctx, stream))
 	}()
 
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		sub := es.NewSubscription(
 			v2.NewProjection(pool),
