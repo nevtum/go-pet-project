@@ -2,38 +2,18 @@ package main
 
 import (
 	"context"
+	"es/internal"
 	"es/internal/api"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func dbPool() *pgxpool.Pool {
-	// Initialize the connection pool
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, "postgres://myuser:mypassword@localhost:15432/mydatabase")
-
-	if err != nil {
-		log.Fatal("Unable to connect to database:", err)
-	}
-
-	// Verify the connection
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatal("Unable to ping database:", err)
-	}
-
-	fmt.Println("Connected to PostgreSQL database!")
-
-	return pool
-}
-
 func runServer(port int) {
-	pool := dbPool()
+	ctx := context.Background()
+	pool := internal.MustDBPool(ctx)
 	repo := api.NewPGCartRepository(pool)
 	h := api.NewShoppingCartHandler(repo)
 
