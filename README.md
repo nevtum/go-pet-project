@@ -1,4 +1,19 @@
-# Event Sourcing Shopping Cart API
+## DISCLAIMER: 🚨 DEMO CODE - NOT FOR PRODUCTION USE 🚨
+
+**IMPORTANT:** This is a demonstration project intended solely for educational and learning purposes. This code is:
+
+- NOT production-ready
+- NOT secure for real-world deployment
+- PROVIDED WITHOUT ANY WARRANTIES
+- MEANT ONLY for understanding event sourcing concepts
+
+**By using this code, you explicitly acknowledge and agree that:**
+- This is a proof-of-concept implementation
+- The author takes NO RESPONSIBILITY for any issues arising from its use
+- It should NEVER be used in any production environment
+- Security, performance, and reliability are NOT guaranteed
+
+## Event Sourcing Shopping Cart API
 
 This project implements a shopping cart API using event sourcing and clean architecture principles in Go. It provides a basic structure for managing shopping carts, allowing items to be added, removed, and checked out while maintaining a record of actions taken on the cart.
 
@@ -61,7 +76,14 @@ Projections can be updated in near real-time as events are processed, ensuring t
 ## Further ideas
 - [ ] Write a round-robin load balancer
 - [ ] Write unit tests at every layer of the stack
+  - [x] aggregate unit tests
+  - [ ] route handler unit tests
+  - [ ] use case unit tests
+  - [ ] repository integration tests
+  - [x] projection integration tests
 - [ ] Load testing script to simulate high traffic scenarios
+- [ ] CI/CD Github Action workflows
+- [ ] OAuth Middleware (Cognito)
 
 ## Conclusion
 
