@@ -47,8 +47,18 @@ The API provides several endpoints to interact with the shopping cart:
 
 The `ShoppingCartUseCase` struct handles the application logic for cart operations, ensuring that the correct repository methods are called in response to user actions.
 
+### Projections
+
+Projections provide a read-optimized view of the data in the event-sourced architecture. They allow for the efficient querying of data by transforming and storing events into a format that's easy to access. Implementing projections can enhance the performance of read operations.
+
+Some potential projections to consider include:
+
+- **Cart Summary Projection**: Maintains a view of the current state of each cart, including items and checkout status.
+- **Sales Analytics Projection**: Aggregates data from completed checkouts to provide insights into sales trends and popular items.
+
+Projections can be updated in near real-time as events are processed, ensuring that the views stay consistent with the underlying data state.
+
 ## Further ideas
-- [ ] Implement event sourcing projections
 - [ ] Write a round-robin load balancer
 - [ ] Write unit tests at every layer of the stack
 - [ ] Load testing script to simulate high traffic scenarios
