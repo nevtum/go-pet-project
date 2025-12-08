@@ -4,7 +4,7 @@ package v2_test
 
 import (
 	"context"
-	"es/internal/api"
+	"es/internal/checkout"
 	"es/internal/es"
 	v2 "es/internal/inventory/v2"
 	"es/internal/util"
@@ -69,13 +69,13 @@ func TestProjectionV2(t *testing.T) {
 
 		assert.NoError(t, tc.projection.Apply(tc.ctx,
 			es.Event{
-				Type:        api.ItemAddedToCart,
+				Type:        checkout.ItemAddedToCart,
 				AggregateID: cartID,
 				Data:        map[string]int{"item_id": itemID},
 				Position:    1,
 			},
 			es.Event{
-				Type:        api.ItemAddedToCart,
+				Type:        checkout.ItemAddedToCart,
 				AggregateID: cartID,
 				Data:        map[string]int{"item_id": itemID},
 				Position:    2,
@@ -84,13 +84,13 @@ func TestProjectionV2(t *testing.T) {
 
 		assert.NoError(t, tc.projection.Apply(tc.ctx,
 			es.Event{
-				Type:        api.ItemRemovedFromCart,
+				Type:        checkout.ItemRemovedFromCart,
 				AggregateID: cartID,
 				Data:        map[string]int{"item_id": itemID},
 				Position:    3,
 			},
 			es.Event{
-				Type:        api.ItemAddedToCart,
+				Type:        checkout.ItemAddedToCart,
 				AggregateID: cartID,
 				Data:        map[string]int{"item_id": itemID},
 				Position:    4,
@@ -116,7 +116,7 @@ func TestProjectionV2(t *testing.T) {
 		cartID2 := 1002
 
 		assert.NoError(t, tc.projection.Apply(tc.ctx, es.Event{
-			Type:        api.ItemAddedToCart,
+			Type:        checkout.ItemAddedToCart,
 			AggregateID: cartID,
 			Data:        map[string]int{"item_id": itemID},
 			Position:    1,
@@ -124,13 +124,13 @@ func TestProjectionV2(t *testing.T) {
 
 		assert.NoError(t, tc.projection.Apply(tc.ctx,
 			es.Event{
-				Type:        api.ItemAddedToCart,
+				Type:        checkout.ItemAddedToCart,
 				AggregateID: cartID2,
 				Data:        map[string]int{"item_id": itemID},
 				Position:    2,
 			},
 			es.Event{
-				Type:        api.ItemRemovedFromCart,
+				Type:        checkout.ItemRemovedFromCart,
 				AggregateID: cartID,
 				Data:        map[string]int{"item_id": itemID},
 				Position:    3,
