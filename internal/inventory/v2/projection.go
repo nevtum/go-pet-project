@@ -33,18 +33,26 @@ func (p *Projection) ApplyMigration(ctx context.Context) error {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 
-	tx.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS inventory_v2;`)
+	defer func(ctx context.Context) {
+		_ = tx.Rollback(ctx)
+	}(ctx)
+
+	if _, err := tx.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS inventory_v2;`); err != nil {
+		return fmt.Errorf("create schema: %w", err)
+	}
 
 	// Create carts table
-	tx.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS inventory_v2.carts (
 			cart_id INTEGER PRIMARY KEY,
 			checked_out BOOLEAN NOT NULL DEFAULT FALSE
 		);
-	`)
+	`); err != nil {
+		return fmt.Errorf("create carts table: %w", err)
+	}
 
 	// Create cart_items table with foreign key to carts
-	tx.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS inventory_v2.cart_items (
 			cart_id INTEGER NOT NULL,
 			item_id INTEGER NOT NULL,
@@ -53,10 +61,12 @@ func (p *Projection) ApplyMigration(ctx context.Context) error {
 			CONSTRAINT fk_cart_items_cart_id
 			FOREIGN KEY (cart_id) REFERENCES inventory_v2.carts(cart_id)
 		);
-	`)
+	`); err != nil {
+		return fmt.Errorf("create cart_items table: %w", err)
+	}
 
 	// Create last_processed_position table
-	tx.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS inventory_v2.last_processed_position (
 			position INTEGER NOT NULL,
 			CONSTRAINT single_row CHECK (position >= 0)
@@ -68,7 +78,9 @@ func (p *Projection) ApplyMigration(ctx context.Context) error {
 		WHERE NOT EXISTS (
 			SELECT 1 FROM inventory_v2.last_processed_position
 		);
-	`)
+	`); err != nil {
+		return fmt.Errorf("create last_processed_position table: %w", err)
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
@@ -99,7 +111,10 @@ func (p *Projection) Apply(ctx context.Context, events ...es.Event) error {
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+
+	defer func(ctx context.Context) {
+		_ = tx.Rollback(ctx)
+	}(ctx)
 
 	maxPosition := int64(0)
 
