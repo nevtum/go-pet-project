@@ -4,21 +4,38 @@ import (
 	"encoding/json"
 	"errors"
 	"es/internal/es"
+	"es/internal/util"
 	"slices"
+	"time"
 )
 
 type CartAggregate struct {
 	es.EventSourcedAggregate
+	now            util.Timestamp
 	ID             int   `json:"cart_id"`
 	Contents       []int `json:"contents"`
 	CheckedOut     bool  `json:"checked_out"`
 	currentVersion int
 }
 
-func NewCartAggregate(cartID int) *CartAggregate {
+type CartOption func(*CartAggregate)
+
+func UseTimestamp(tp util.Timestamp) CartOption {
+	return func(c *CartAggregate) {
+		c.now = tp
+	}
+}
+
+func NewCartAggregate(cartID int, options ...CartOption) *CartAggregate {
 	c := &CartAggregate{
+		now:      time.Now,
 		Contents: []int{},
 	}
+
+	for _, opt := range options {
+		opt(c)
+	}
+
 	_ = c.Apply(c.newCartCreatedEvent(cartID))
 	return c
 }
@@ -97,6 +114,9 @@ func toItemID(data any) (int, error) {
 	var payload itemAddedPayload
 	if err := json.Unmarshal(dataBytes, &payload); err != nil {
 		return 0, err
+	}
+	if payload.ItemID == 0 {
+		return 0, errors.New("invalid or missing item_id")
 	}
 	return payload.ItemID, nil
 }

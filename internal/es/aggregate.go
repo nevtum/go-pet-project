@@ -16,5 +16,5 @@ func (c *EventSourcedAggregate) UncommittedEvents() []Event {
 
 func (c *EventSourcedAggregate) Commit() {
 	c.comittedEvents = append(c.comittedEvents, c.uncommittedEvents...)
-	c.uncommittedEvents = nil
+	c.uncommittedEvents = []Event{}
 }

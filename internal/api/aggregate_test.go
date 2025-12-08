@@ -2,7 +2,9 @@ package api_test
 
 import (
 	"es/internal/api"
+	"es/internal/util"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -11,27 +13,27 @@ import (
 
 func TestCartAggregateCommands(t *testing.T) {
 	t.Run("add single item", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 		assert.NoError(t, cart.Add(42))
 		assert.Equal(t, []int{42}, cart.Contents)
 	})
 
 	t.Run("add single item multiple times", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 		assert.NoError(t, cart.Add(42))
 		assert.NoError(t, cart.Add(42))
 		assert.Equal(t, []int{42, 42}, cart.Contents)
 	})
 
 	t.Run("add and remove single item", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 		assert.NoError(t, cart.Add(42))
 		assert.NoError(t, cart.Remove(42))
 		assert.Equal(t, []int{}, cart.Contents)
 	})
 
 	t.Run("checkout", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 
 		assert.Equal(t, false, cart.CheckedOut)
 
@@ -41,7 +43,7 @@ func TestCartAggregateCommands(t *testing.T) {
 	})
 
 	t.Run("cannot add item to checked out cart", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 		assert.Equal(t, false, cart.CheckedOut)
 		assert.NoError(t, cart.Checkout())
 
@@ -53,7 +55,7 @@ func TestCartAggregateCommands(t *testing.T) {
 	})
 
 	t.Run("cannot remove item from checked out cart", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 		assert.NoError(t, cart.Add(42))
 
 		assert.NoError(t, cart.Checkout())
@@ -65,13 +67,13 @@ func TestCartAggregateCommands(t *testing.T) {
 	})
 
 	t.Run("remove non-existent item", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 		assert.NoError(t, cart.Remove(99))
 		assert.Equal(t, []int{}, cart.Contents)
 	})
 
 	t.Run("multiple unique items", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 		assert.NoError(t, cart.Add(42))
 		assert.NoError(t, cart.Add(43))
 		assert.NoError(t, cart.Add(44))
@@ -80,7 +82,7 @@ func TestCartAggregateCommands(t *testing.T) {
 	})
 
 	t.Run("remove item from multiple items", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 		assert.NoError(t, cart.Add(42))
 		assert.NoError(t, cart.Add(43))
 		assert.NoError(t, cart.Add(44))
@@ -91,7 +93,7 @@ func TestCartAggregateCommands(t *testing.T) {
 	})
 
 	t.Run("cannot checkout multiple times", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 		assert.NoError(t, cart.Checkout())
 
 		err := cart.Checkout()
@@ -101,8 +103,32 @@ func TestCartAggregateCommands(t *testing.T) {
 }
 
 func TestCartAggregateEvents(t *testing.T) {
+	t.Run("cart aggregate initial events", func(t *testing.T) {
+		cart := newTestCartAggregate(1001)
+		assert.NoError(t, cart.Add(42))
+
+		assert.Equal(t, []es.Event{
+			{
+				Type:          api.CartCreated,
+				At:            atTimeDelta(0),
+				VersionID:     1,
+				AggregateType: api.CartType,
+				AggregateID:   1001,
+				Data:          map[string]any{},
+			},
+			{
+				Type:          api.ItemAddedToCart,
+				At:            atTimeDelta(1),
+				VersionID:     2,
+				AggregateType: api.CartType,
+				AggregateID:   1001,
+				Data:          map[string]int{"item_id": 42},
+			},
+		}, cart.UncommittedEvents())
+	})
+
 	t.Run("apply no events", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 
 		err := cart.Apply()
 		assert.Error(t, err)
@@ -110,7 +136,7 @@ func TestCartAggregateEvents(t *testing.T) {
 	})
 
 	t.Run("apply unknown event type returns error", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 
 		// Create an event with an unimplemented type to trigger the default case
 		unknownEvent := es.Event{
@@ -124,7 +150,7 @@ func TestCartAggregateEvents(t *testing.T) {
 	})
 
 	t.Run("apply event with invalid item ID data", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 
 		// Create an event with invalid item ID data
 		invalidItemEvent := es.Event{
@@ -137,7 +163,7 @@ func TestCartAggregateEvents(t *testing.T) {
 	})
 
 	t.Run("apply multiple different events", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 
 		// Prepare multiple events to apply in a single call
 		events := []es.Event{
@@ -153,7 +179,7 @@ func TestCartAggregateEvents(t *testing.T) {
 	})
 
 	t.Run("remove item from non-consecutive position", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 
 		// Add multiple items and remove a non-first, non-last item
 		events := []es.Event{
@@ -169,7 +195,7 @@ func TestCartAggregateEvents(t *testing.T) {
 	})
 
 	t.Run("apply event with unmarshalable data", func(t *testing.T) {
-		cart := api.NewCartAggregate(1001)
+		cart := newTestCartAggregate(1001)
 
 		// Create an event with data that cannot be JSON marshaled
 		invalidEvent := es.Event{
@@ -180,4 +206,45 @@ func TestCartAggregateEvents(t *testing.T) {
 		err := cart.Apply(invalidEvent)
 		assert.Error(t, err)
 	})
+
+	t.Run("commit events", func(t *testing.T) {
+		cart := newTestCartAggregate(1001)
+
+		events := []es.Event{
+			{Type: api.ItemAddedToCart, Data: map[string]int{"item_id": 10}},
+			{Type: api.ItemAddedToCart, Data: map[string]int{"item_id": 20}},
+			{Type: api.ItemRemovedFromCart, Data: map[string]int{"item_id": 10}},
+		}
+
+		assert.NoError(t, cart.Apply(events...))
+
+		assert.Equal(t, append(
+			[]es.Event{
+				{
+					Type:          api.CartCreated,
+					At:            atTimeDelta(0),
+					VersionID:     1,
+					AggregateType: api.CartType,
+					AggregateID:   1001,
+					Data:          map[string]any{},
+				},
+			}, events...), cart.UncommittedEvents())
+
+		cart.Commit()
+		assert.Equal(t, []es.Event{}, cart.UncommittedEvents())
+
+		// Ensure idempotent by committing again
+		cart.Commit()
+		assert.Equal(t, []es.Event{}, cart.UncommittedEvents())
+	})
+}
+
+func newTestCartAggregate(cartID int) *api.CartAggregate {
+	return api.NewCartAggregate(cartID, api.UseTimestamp(
+		util.SequencedTime(atTimeDelta(0)),
+	))
+}
+
+func atTimeDelta(ns int) time.Time {
+	return time.Date(2026, 1, 1, 0, 0, 0, ns, time.UTC)
 }
