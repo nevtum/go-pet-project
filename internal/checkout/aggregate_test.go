@@ -1,7 +1,7 @@
-package api_test
+package checkout_test
 
 import (
-	"es/internal/api"
+	"es/internal/checkout"
 	"es/internal/util"
 	"testing"
 	"time"
@@ -109,18 +109,18 @@ func TestCartAggregateEvents(t *testing.T) {
 
 		assert.Equal(t, []es.Event{
 			{
-				Type:          api.CartCreated,
+				Type:          checkout.CartCreated,
 				At:            atTimeDelta(0),
 				VersionID:     1,
-				AggregateType: api.CartType,
+				AggregateType: checkout.CartType,
 				AggregateID:   1001,
 				Data:          map[string]any{},
 			},
 			{
-				Type:          api.ItemAddedToCart,
+				Type:          checkout.ItemAddedToCart,
 				At:            atTimeDelta(1),
 				VersionID:     2,
-				AggregateType: api.CartType,
+				AggregateType: checkout.CartType,
 				AggregateID:   1001,
 				Data:          map[string]int{"item_id": 42},
 			},
@@ -154,7 +154,7 @@ func TestCartAggregateEvents(t *testing.T) {
 
 		// Create an event with invalid item ID data
 		invalidItemEvent := es.Event{
-			Type: api.ItemAddedToCart,
+			Type: checkout.ItemAddedToCart,
 			Data: map[string]string{"wrong_key": "123"},
 		}
 
@@ -167,9 +167,9 @@ func TestCartAggregateEvents(t *testing.T) {
 
 		// Prepare multiple events to apply in a single call
 		events := []es.Event{
-			{Type: api.ItemAddedToCart, Data: map[string]int{"item_id": 42}},
-			{Type: api.ItemAddedToCart, Data: map[string]int{"item_id": 43}},
-			{Type: api.CartCheckedOut},
+			{Type: checkout.ItemAddedToCart, Data: map[string]int{"item_id": 42}},
+			{Type: checkout.ItemAddedToCart, Data: map[string]int{"item_id": 43}},
+			{Type: checkout.CartCheckedOut},
 		}
 
 		err := cart.Apply(events...)
@@ -183,10 +183,10 @@ func TestCartAggregateEvents(t *testing.T) {
 
 		// Add multiple items and remove a non-first, non-last item
 		events := []es.Event{
-			{Type: api.ItemAddedToCart, Data: map[string]int{"item_id": 10}},
-			{Type: api.ItemAddedToCart, Data: map[string]int{"item_id": 20}},
-			{Type: api.ItemAddedToCart, Data: map[string]int{"item_id": 30}},
-			{Type: api.ItemRemovedFromCart, Data: map[string]int{"item_id": 20}},
+			{Type: checkout.ItemAddedToCart, Data: map[string]int{"item_id": 10}},
+			{Type: checkout.ItemAddedToCart, Data: map[string]int{"item_id": 20}},
+			{Type: checkout.ItemAddedToCart, Data: map[string]int{"item_id": 30}},
+			{Type: checkout.ItemRemovedFromCart, Data: map[string]int{"item_id": 20}},
 		}
 
 		err := cart.Apply(events...)
@@ -199,7 +199,7 @@ func TestCartAggregateEvents(t *testing.T) {
 
 		// Create an event with data that cannot be JSON marshaled
 		invalidEvent := es.Event{
-			Type: api.ItemAddedToCart,
+			Type: checkout.ItemAddedToCart,
 			Data: make(chan int), // Channels cannot be JSON marshaled
 		}
 
@@ -211,9 +211,9 @@ func TestCartAggregateEvents(t *testing.T) {
 		cart := newTestCartAggregate(1001)
 
 		events := []es.Event{
-			{Type: api.ItemAddedToCart, Data: map[string]int{"item_id": 10}},
-			{Type: api.ItemAddedToCart, Data: map[string]int{"item_id": 20}},
-			{Type: api.ItemRemovedFromCart, Data: map[string]int{"item_id": 10}},
+			{Type: checkout.ItemAddedToCart, Data: map[string]int{"item_id": 10}},
+			{Type: checkout.ItemAddedToCart, Data: map[string]int{"item_id": 20}},
+			{Type: checkout.ItemRemovedFromCart, Data: map[string]int{"item_id": 10}},
 		}
 
 		assert.NoError(t, cart.Apply(events...))
@@ -221,10 +221,10 @@ func TestCartAggregateEvents(t *testing.T) {
 		assert.Equal(t, append(
 			[]es.Event{
 				{
-					Type:          api.CartCreated,
+					Type:          checkout.CartCreated,
 					At:            atTimeDelta(0),
 					VersionID:     1,
-					AggregateType: api.CartType,
+					AggregateType: checkout.CartType,
 					AggregateID:   1001,
 					Data:          map[string]any{},
 				},
@@ -239,8 +239,8 @@ func TestCartAggregateEvents(t *testing.T) {
 	})
 }
 
-func newTestCartAggregate(cartID int) *api.CartAggregate {
-	return api.NewCartAggregate(cartID, api.UseTimestamp(
+func newTestCartAggregate(cartID int) *checkout.CartAggregate {
+	return checkout.NewCartAggregate(cartID, checkout.UseTimestamp(
 		util.SequencedTime(atTimeDelta(0)),
 	))
 }

@@ -3,7 +3,7 @@ package v2
 import (
 	"context"
 	"errors"
-	"es/internal/api"
+	"es/internal/checkout"
 	"es/internal/es"
 	"fmt"
 
@@ -25,9 +25,9 @@ func (p *Projection) Name() string {
 
 func (p *Projection) SubscribedEvents() []es.EventType {
 	return []es.EventType{
-		api.ItemAddedToCart,
-		api.ItemRemovedFromCart,
-		api.CartCheckedOut,
+		checkout.ItemAddedToCart,
+		checkout.ItemRemovedFromCart,
+		checkout.CartCheckedOut,
 	}
 }
 
@@ -129,17 +129,17 @@ func (p *Projection) Apply(ctx context.Context, events ...es.Event) error {
 		}
 
 		switch event.Type {
-		case api.ItemAddedToCart:
+		case checkout.ItemAddedToCart:
 			if err := p.handleItemAddedToCart(ctx, tx, event); err != nil {
 				return fmt.Errorf("handle ItemAddedToCart: %w", err)
 			}
 
-		case api.ItemRemovedFromCart:
+		case checkout.ItemRemovedFromCart:
 			if err := p.handleItemRemovedFromCart(ctx, tx, event); err != nil {
 				return fmt.Errorf("handle ItemRemovedFromCart: %w", err)
 			}
 
-		case api.CartCheckedOut:
+		case checkout.CartCheckedOut:
 			if err := p.handleCartCheckedOut(ctx, tx, event); err != nil {
 				return fmt.Errorf("handle CartCheckedOut: %w", err)
 			}

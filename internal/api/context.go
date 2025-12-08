@@ -8,44 +8,44 @@ import (
 	"strconv"
 )
 
-// ApiContext is a wrapper around http.ResponseWriter and *http.Request that provides
+// Context is a wrapper around http.ResponseWriter and *http.Request that provides
 // convenience methods for writing less verbose http handlers.
-type ApiContext struct {
+type Context struct {
 	w http.ResponseWriter
 	r *http.Request
 }
 
-func (c *ApiContext) IntParam(key string) (int, error) {
+func (c *Context) IntParam(key string) (int, error) {
 	value := c.r.PathValue(key)
 	return convertToInt(key, value)
 }
 
-func (c *ApiContext) RequestContext() context.Context {
+func (c *Context) RequestContext() context.Context {
 	return c.r.Context()
 }
 
-func (c *ApiContext) JSON(a any) error {
+func (c *Context) JSON(a any) error {
 	return json.NewEncoder(c.w).Encode(a)
 }
 
-func (c *ApiContext) OK() *ApiContext {
+func (c *Context) OK() *Context {
 	c.w.WriteHeader(http.StatusOK)
 	return c
 }
 
-func (c *ApiContext) BadRequest(err error) error {
+func (c *Context) BadRequest(err error) error {
 	http.Error(c.w, err.Error(), http.StatusBadRequest)
 	return nil
 }
 
-func (c *ApiContext) InternalServerError(err error) error {
+func (c *Context) InternalServerError(err error) error {
 	http.Error(c.w, err.Error(), http.StatusInternalServerError)
 	return nil
 }
 
-func ToHandleFunc(handler func(c *ApiContext) error) http.HandlerFunc {
+func ToHandleFunc(handler func(c *Context) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := &ApiContext{
+		ctx := &Context{
 			w: w,
 			r: r,
 		}

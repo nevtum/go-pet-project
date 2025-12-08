@@ -1,6 +1,7 @@
-package api
+package checkout
 
 import (
+	"es/internal/api"
 	"fmt"
 	"net/http"
 )
@@ -19,15 +20,15 @@ func NewShoppingCartHandler(repository CartRepository) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "Healthy!")
 	})
-	mux.HandleFunc("GET /cart/{cartID}", ToHandleFunc(h.GetCartDetails))
-	mux.HandleFunc("GET /cart/{cartID}/{itemID}", ToHandleFunc(h.AddItem))
-	mux.HandleFunc("GET /cart/{cartID}/{itemID}/delete", ToHandleFunc(h.RemoveItem))
-	mux.HandleFunc("GET /checkout/{cartID}", ToHandleFunc(h.Checkout))
+	mux.HandleFunc("GET /cart/{cartID}", api.ToHandleFunc(h.GetCartDetails))
+	mux.HandleFunc("GET /cart/{cartID}/{itemID}", api.ToHandleFunc(h.AddItem))
+	mux.HandleFunc("GET /cart/{cartID}/{itemID}/delete", api.ToHandleFunc(h.RemoveItem))
+	mux.HandleFunc("GET /checkout/{cartID}", api.ToHandleFunc(h.Checkout))
 
 	return mux
 }
 
-func (h *RouteHandler) GetCartDetails(c *ApiContext) error {
+func (h *RouteHandler) GetCartDetails(c *api.Context) error {
 	cartID, err := c.IntParam("cartID")
 
 	if err != nil {
@@ -42,7 +43,7 @@ func (h *RouteHandler) GetCartDetails(c *ApiContext) error {
 	return c.OK().JSON(cart)
 }
 
-func (h *RouteHandler) AddItem(c *ApiContext) error {
+func (h *RouteHandler) AddItem(c *api.Context) error {
 	cartID, err := c.IntParam("cartID")
 
 	if err != nil {
@@ -64,7 +65,7 @@ func (h *RouteHandler) AddItem(c *ApiContext) error {
 	return c.OK().JSON(cart)
 }
 
-func (h *RouteHandler) RemoveItem(c *ApiContext) error {
+func (h *RouteHandler) RemoveItem(c *api.Context) error {
 	cartID, err := c.IntParam("cartID")
 
 	if err != nil {
@@ -86,7 +87,7 @@ func (h *RouteHandler) RemoveItem(c *ApiContext) error {
 	return c.OK().JSON(cart)
 }
 
-func (h *RouteHandler) Checkout(c *ApiContext) error {
+func (h *RouteHandler) Checkout(c *api.Context) error {
 	cartID, err := c.IntParam("cartID")
 
 	if err != nil {

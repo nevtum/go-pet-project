@@ -1,4 +1,4 @@
-package api
+package checkout
 
 import (
 	"es/internal/es"

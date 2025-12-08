@@ -3,7 +3,7 @@ package v1
 import (
 	"context"
 	"errors"
-	"es/internal/api"
+	"es/internal/checkout"
 	"es/internal/es"
 	"fmt"
 
@@ -24,9 +24,9 @@ func (p *Projection) Name() string {
 
 func (p *Projection) SubscribedEvents() []es.EventType {
 	return []es.EventType{
-		api.ItemAddedToCart,
-		api.ItemRemovedFromCart,
-		api.CartCheckedOut,
+		checkout.ItemAddedToCart,
+		checkout.ItemRemovedFromCart,
+		checkout.CartCheckedOut,
 	}
 }
 
@@ -110,21 +110,21 @@ func (p *Projection) Apply(ctx context.Context, events ...es.Event) error {
 		}
 
 		switch event.Type {
-		case api.ItemAddedToCart:
+		case checkout.ItemAddedToCart:
 			itemID, err := extractItemID(event.Data)
 			if err != nil {
 				return fmt.Errorf("extract item_id from ItemAddedToCart event: %w", err)
 			}
 			key := [2]int{event.AggregateID, itemID}
 			itemChanges[key]++
-		case api.ItemRemovedFromCart:
+		case checkout.ItemRemovedFromCart:
 			itemID, err := extractItemID(event.Data)
 			if err != nil {
 				return fmt.Errorf("extract item_id from ItemRemovedFromCart event: %w", err)
 			}
 			key := [2]int{event.AggregateID, itemID}
 			itemChanges[key]--
-		case api.CartCheckedOut:
+		case checkout.CartCheckedOut:
 			checkedOutCarts[event.AggregateID] = true
 		}
 	}

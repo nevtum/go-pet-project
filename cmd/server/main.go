@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"es/internal"
-	"es/internal/api"
+	"es/internal/checkout"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,8 +14,8 @@ import (
 func runServer(port int) {
 	ctx := context.Background()
 	pool := internal.MustDBPool(ctx)
-	repo := api.NewPGCartRepository(pool)
-	h := api.NewShoppingCartHandler(repo)
+	repo := checkout.NewPGCartRepository(pool)
+	h := checkout.NewShoppingCartHandler(repo)
 
 	http.ListenAndServe(fmt.Sprintf(":%d", port), h)
 }
