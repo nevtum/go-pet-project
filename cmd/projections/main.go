@@ -7,6 +7,11 @@ import (
 	v2 "es/internal/inventory/v2"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -31,16 +36,48 @@ func dbPool(ctx context.Context) *pgxpool.Pool {
 
 func main() {
 	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, time.Second*120)
 
 	pool := dbPool(ctx)
 	stream := es.NewEventStream(pool)
 	var batchSize int64 = 25
 
-	if err := es.NewSubscription(v1.NewProjection(pool), batchSize).Listen(ctx, stream); err != nil {
-		log.Fatal("Unable to listen to event stream:", err)
+	stopChan := make(chan os.Signal, 1)
+	signal.Notify(stopChan, syscall.SIGTERM, syscall.SIGINT)
+
+	wg := sync.WaitGroup{}
+
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		if err := es.NewSubscription(
+			v1.NewProjection(pool),
+			batchSize,
+			time.Second*5,
+		).Listen(ctx, stream); err != nil {
+			log.Fatal("Unable to listen to event stream:", err)
+		}
+	}()
+
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		if err := es.NewSubscription(
+			v2.NewProjection(pool),
+			batchSize,
+			time.Second*2,
+		).Listen(ctx, stream); err != nil {
+			log.Fatal("Unable to listen to event stream:", err)
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		fmt.Println("Context timed out")
+	case <-stopChan:
+		fmt.Println("Received signal to stop")
+		cancel()
 	}
 
-	if err := es.NewSubscription(v2.NewProjection(pool), batchSize).Listen(ctx, stream); err != nil {
-		log.Fatal("Unable to listen to event stream:", err)
-	}
+	wg.Wait()
 }

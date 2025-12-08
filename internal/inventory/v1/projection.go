@@ -18,6 +18,10 @@ func NewProjection(pool *pgxpool.Pool) *Projection {
 	return &Projection{pool: pool}
 }
 
+func (p *Projection) Name() string {
+	return "inventory_v1"
+}
+
 func (p *Projection) SubscribedEvents() []es.EventType {
 	return []es.EventType{
 		api.ItemAddedToCart,
