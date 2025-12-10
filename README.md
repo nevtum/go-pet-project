@@ -7,7 +7,7 @@
 - PROVIDED WITHOUT ANY WARRANTIES
 - MEANT ONLY for understanding event sourcing concepts
 
-**By using this code, you explicitly acknowledge and agree that:**
+**By copying this code, you explicitly acknowledge and agree that:**
 - This is a proof-of-concept implementation
 - The author takes NO RESPONSIBILITY for any issues arising from its use
 - It should NEVER be used in any production environment
