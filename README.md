@@ -74,7 +74,7 @@ Some potential projections to consider include:
 Projections can be updated in near real-time as events are processed, ensuring that the views stay consistent with the underlying data state.
 
 ## Further ideas
-- [ ] Write a round-robin load balancer
+- [x] Write a round-robin load balancer
 - [ ] Write unit tests at every layer of the stack
   - [x] aggregate unit tests
   - [ ] route handler unit tests
