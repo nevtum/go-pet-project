@@ -57,6 +57,7 @@ The API provides several endpoints to interact with the shopping cart:
 - `GET /cart/{cartID}/{itemID}`: Adds an item to a specific cart.
 - `GET /cart/{cartID}/{itemID}/delete`: Removes an item from a specific cart.
 - `GET /checkout/{cartID}`: Completes the checkout process for a specific cart.
+- `GET /events/{aggType}/{aggID}`: Retrieves events associated with a specific aggregate type and ID.
 
 ### Use Cases
 
