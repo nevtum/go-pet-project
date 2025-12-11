@@ -22,6 +22,9 @@ func NewShoppingCartHandler(repository CartRepository, eventStream *es.EventStre
 		fmt.Fprintf(w, "Healthy!")
 	})
 	mux.HandleFunc("GET /cart/{cartID}", api.ToHandleFunc(h.GetCartDetails))
+	mux.HandleFunc("GET /cart/{cartID}/{itemID}", api.ToHandleFunc(h.AddItem))
+	mux.HandleFunc("GET /cart/{cartID}/{itemID}/delete", api.ToHandleFunc(h.RemoveItem))
+	mux.HandleFunc("GET /checkout/{cartID}", api.ToHandleFunc(h.Checkout))
 
 	eHandler := es.NewEventsRouteHandler(eventStream)
 	mux.Handle("/events/{aggType}/{aggID}", api.ToHandleFunc(eHandler.AggregateEvents))
