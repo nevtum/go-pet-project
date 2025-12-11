@@ -2,6 +2,7 @@ package checkout
 
 import (
 	"es/internal/api"
+	"es/internal/es"
 	"fmt"
 	"net/http"
 )
@@ -10,7 +11,7 @@ type RouteHandler struct {
 	usecase *ShoppingCartUseCase
 }
 
-func NewShoppingCartHandler(repository CartRepository) http.Handler {
+func NewShoppingCartHandler(repository CartRepository, eventStream *es.EventStream) http.Handler {
 	h := &RouteHandler{
 		usecase: NewShoppingCartUseCase(repository),
 	}
@@ -21,9 +22,9 @@ func NewShoppingCartHandler(repository CartRepository) http.Handler {
 		fmt.Fprintf(w, "Healthy!")
 	})
 	mux.HandleFunc("GET /cart/{cartID}", api.ToHandleFunc(h.GetCartDetails))
-	mux.HandleFunc("GET /cart/{cartID}/{itemID}", api.ToHandleFunc(h.AddItem))
-	mux.HandleFunc("GET /cart/{cartID}/{itemID}/delete", api.ToHandleFunc(h.RemoveItem))
-	mux.HandleFunc("GET /checkout/{cartID}", api.ToHandleFunc(h.Checkout))
+
+	eHandler := es.NewEventsRouteHandler(eventStream)
+	mux.Handle("/events/{aggType}/{aggID}", api.ToHandleFunc(eHandler.AggregateEvents))
 
 	return mux
 }

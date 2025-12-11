@@ -20,6 +20,10 @@ func (c *Context) IntParam(key string) (int, error) {
 	return convertToInt(key, value)
 }
 
+func (c *Context) StringParam(key string) string {
+	return c.r.PathValue(key)
+}
+
 func (c *Context) RequestContext() context.Context {
 	return c.r.Context()
 }

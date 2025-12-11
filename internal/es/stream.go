@@ -31,6 +31,63 @@ func (s *EventStream) GetMaxPosition(ctx context.Context) (int64, error) {
 	return maxPosition, nil
 }
 
+func (s *EventStream) GetAggregateEvents(ctx context.Context, aggType AggregateType, aggID int) ([]Event, error) {
+	query := `
+		SELECT
+			position,
+			aggregate_id,
+			aggregate_type,
+			event_type,
+			at,
+			version_id,
+			data
+		FROM events
+		WHERE aggregate_id = $1
+		AND aggregate_type = $2
+		ORDER BY position ASC`
+
+	rows, err := s.pool.Query(ctx, query, aggID, aggType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	events := []Event{}
+	for rows.Next() {
+		var e Event
+		var dataJSON []byte
+
+		err := rows.Scan(
+			&e.Position,
+			&e.AggregateID,
+			&e.AggregateType,
+			&e.Type,
+			&e.At,
+			&e.VersionID,
+			&dataJSON,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Unmarshal JSON data if present
+		if dataJSON != nil {
+			if err := json.Unmarshal(dataJSON, &e.Data); err != nil {
+				return nil, err
+			}
+		}
+
+		events = append(events, e)
+	}
+
+	// Check for any errors during iteration
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return events, nil
+}
+
 func (s *EventStream) GetEvents(ctx context.Context, startPos, endPos int64, eventTypes []EventType) ([]Event, error) {
 	query := `
 		SELECT
