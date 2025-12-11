@@ -10,6 +10,9 @@ migrate:
 dev:
 	go run cmd/server/main.go
 
+lb:
+	go run cmd/loadbalancer/main.go
+
 projections:
 	go run cmd/projections/main.go
 

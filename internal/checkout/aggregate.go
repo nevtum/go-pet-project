@@ -28,16 +28,21 @@ func UseTimestamp(tp util.Timestamp) CartOption {
 
 func NewCartAggregate(cartID int, options ...CartOption) *CartAggregate {
 	c := &CartAggregate{
-		now:      time.Now,
-		Contents: []int{},
+		now:        time.Now,
+		ID:         cartID,
+		Contents:   []int{},
+		CheckedOut: false,
 	}
 
 	for _, opt := range options {
 		opt(c)
 	}
 
-	_ = c.Apply(c.newCartCreatedEvent(cartID))
 	return c
+}
+
+func (c *CartAggregate) Init() error {
+	return c.Apply(c.newCartCreatedEvent(c.ID))
 }
 
 func (c *CartAggregate) Add(itemID int) error {

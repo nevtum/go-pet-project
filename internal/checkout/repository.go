@@ -25,6 +25,9 @@ func NewPGCartRepository(pool *pgxpool.Pool) *PGCartRepository {
 
 func (r *PGCartRepository) New(ctx context.Context, cartID int) (*CartAggregate, error) {
 	cart := NewCartAggregate(cartID)
+	if err := cart.Init(); err != nil {
+		return nil, err
+	}
 	return cart, r.Save(ctx, cart)
 }
 
@@ -81,7 +84,7 @@ func (r *PGCartRepository) Get(ctx context.Context, cartID int) (*CartAggregate,
 		return nil, nil
 	}
 
-	cart := &CartAggregate{}
+	cart := NewCartAggregate(cartID)
 	if err := cart.Apply(events...); err != nil {
 		return nil, err
 	}
