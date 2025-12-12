@@ -6,7 +6,7 @@ import (
 	"es/internal/checkout"
 	"es/internal/es"
 	"fmt"
-	"net/http"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,9 +17,9 @@ func runServer(port int) {
 	pool := internal.MustDBPool(ctx)
 	repo := checkout.NewPGCartRepository(pool)
 	stream := es.NewEventStream(pool)
-	h := checkout.NewShoppingCartHandler(repo, stream)
+	app := checkout.NewShoppingCartHandler(repo, stream)
 
-	http.ListenAndServe(fmt.Sprintf(":%d", port), h)
+	log.Fatal(app.Listen(fmt.Sprintf(":%d", port)))
 }
 
 func main() {

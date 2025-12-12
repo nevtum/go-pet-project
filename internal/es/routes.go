@@ -1,8 +1,9 @@
 package es
 
 import (
-	"errors"
-	"es/internal/api"
+	"net/http"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type EventsRouteHandler struct {
@@ -15,24 +16,24 @@ func NewEventsRouteHandler(eventStream *EventStream) *EventsRouteHandler {
 	}
 }
 
-func (h *EventsRouteHandler) AggregateEvents(c *api.Context) error {
-	aggType := c.StringParam("aggType")
+func (h *EventsRouteHandler) AggregateEvents(c *fiber.Ctx) error {
+	aggType := c.Params("aggType")
 
 	if aggType == "" {
-		return c.BadRequest(errors.New("aggType is required"))
+		return c.Status(http.StatusBadRequest).SendString("aggType is required")
 	}
 
-	aggID, err := c.IntParam("aggID")
+	aggID, err := c.ParamsInt("aggID")
 
 	if err != nil {
-		return c.BadRequest(err)
+		return c.Status(http.StatusBadRequest).SendString(err.Error())
 	}
 
-	events, err := h.eventStream.GetAggregateEvents(c.RequestContext(), AggregateType(aggType), aggID)
+	events, err := h.eventStream.GetAggregateEvents(c.Context(), AggregateType(aggType), aggID)
 
 	if err != nil {
 		return err
 	}
 
-	return c.OK().JSON(events)
+	return c.Status(http.StatusOK).JSON(events)
 }

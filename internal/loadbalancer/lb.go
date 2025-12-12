@@ -19,8 +19,8 @@ type Server struct {
 	mu        sync.Mutex
 }
 
-func (s *Server) Probe(ctx context.Context) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodHead, "/healthz", nil)
+func (s *Server) ReadinessProbe(ctx context.Context) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "/readyz", nil)
 	if err != nil {
 		fmt.Printf("error creating request: %v\n", err)
 		return
@@ -108,7 +108,7 @@ func (lb *LoadBalancer) serverHealthCheck(ctx context.Context, server *Server) {
 			return
 		case <-ticker.C:
 			lb.mu.Lock()
-			server.Probe(ctx)
+			server.ReadinessProbe(ctx)
 			lb.mu.Unlock()
 		}
 	}

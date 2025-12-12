@@ -1,108 +1,121 @@
 package checkout
 
 import (
-	"es/internal/api"
 	"es/internal/es"
-	"fmt"
 	"net/http"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/healthcheck"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 )
 
 type RouteHandler struct {
 	usecase *ShoppingCartUseCase
 }
 
-func NewShoppingCartHandler(repository CartRepository, eventStream *es.EventStream) http.Handler {
+func NewShoppingCartHandler(repository CartRepository, eventStream *es.EventStream) *fiber.App {
 	h := &RouteHandler{
 		usecase: NewShoppingCartUseCase(repository),
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Healthy!")
-	})
-	mux.HandleFunc("GET /cart/{cartID}", api.ToHandleFunc(h.GetCartDetails))
-	mux.HandleFunc("GET /cart/{cartID}/{itemID}", api.ToHandleFunc(h.AddItem))
-	mux.HandleFunc("GET /cart/{cartID}/{itemID}/delete", api.ToHandleFunc(h.RemoveItem))
-	mux.HandleFunc("GET /checkout/{cartID}", api.ToHandleFunc(h.Checkout))
+	app := fiber.New()
+	app.Use(healthcheck.New(healthcheck.Config{
+		LivenessProbe: func(c *fiber.Ctx) bool {
+			return true
+		},
+		LivenessEndpoint: "/livez",
+		ReadinessProbe: func(c *fiber.Ctx) bool {
+			return true
+		},
+		ReadinessEndpoint: "/readyz",
+	}))
+	app.Use(logger.New())
+
+	api := app.Group("/cart")
+	api.Get("/:cartID", h.GetCartDetails)
+	api.Get("/:cartID/:itemID", h.AddItem)
+	api.Get("/:cartID/:itemID/delete", h.RemoveItem)
+	api.Post("/:cartID/checkout", h.Checkout)
+
+	eventsApi := app.Group("/events")
 
 	eHandler := es.NewEventsRouteHandler(eventStream)
-	mux.Handle("/events/{aggType}/{aggID}", api.ToHandleFunc(eHandler.AggregateEvents))
+	eventsApi.Get("/:aggType/:aggID", eHandler.AggregateEvents)
 
-	return mux
+	return app
 }
 
-func (h *RouteHandler) GetCartDetails(c *api.Context) error {
-	cartID, err := c.IntParam("cartID")
+func (h *RouteHandler) GetCartDetails(c *fiber.Ctx) error {
+	cartID, err := c.ParamsInt("cartID")
 
 	if err != nil {
-		return c.BadRequest(err)
+		return c.Status(http.StatusBadRequest).SendString(err.Error())
 	}
 
-	cart, err := h.usecase.GetCartDetails(c.RequestContext(), cartID)
+	cart, err := h.usecase.GetCartDetails(c.Context(), cartID)
 	if err != nil {
 		return err
 	}
 
-	return c.OK().JSON(cart)
+	return c.Status(http.StatusOK).JSON(cart)
 }
 
-func (h *RouteHandler) AddItem(c *api.Context) error {
-	cartID, err := c.IntParam("cartID")
+func (h *RouteHandler) AddItem(c *fiber.Ctx) error {
+	cartID, err := c.ParamsInt("cartID")
 
 	if err != nil {
-		return c.BadRequest(err)
+		return c.Status(http.StatusBadRequest).SendString(err.Error())
 	}
 
-	itemID, err := c.IntParam("itemID")
-
-	if err != nil {
-		return err
-	}
-
-	cart, err := h.usecase.AddItemToCart(c.RequestContext(), cartID, itemID)
+	itemID, err := c.ParamsInt("itemID")
 
 	if err != nil {
 		return err
 	}
 
-	return c.OK().JSON(cart)
+	cart, err := h.usecase.AddItemToCart(c.Context(), cartID, itemID)
+
+	if err != nil {
+		return err
+	}
+
+	return c.Status(http.StatusOK).JSON(cart)
 }
 
-func (h *RouteHandler) RemoveItem(c *api.Context) error {
-	cartID, err := c.IntParam("cartID")
+func (h *RouteHandler) RemoveItem(c *fiber.Ctx) error {
+	cartID, err := c.ParamsInt("cartID")
 
 	if err != nil {
-		return c.BadRequest(err)
+		return c.Status(http.StatusBadRequest).SendString(err.Error())
 	}
 
-	itemID, err := c.IntParam("itemID")
-
-	if err != nil {
-		return err
-	}
-
-	cart, err := h.usecase.RemoveItemFromCart(c.RequestContext(), cartID, itemID)
+	itemID, err := c.ParamsInt("itemID")
 
 	if err != nil {
 		return err
 	}
 
-	return c.OK().JSON(cart)
+	cart, err := h.usecase.RemoveItemFromCart(c.Context(), cartID, itemID)
+
+	if err != nil {
+		return err
+	}
+
+	return c.Status(http.StatusOK).JSON(cart)
 }
 
-func (h *RouteHandler) Checkout(c *api.Context) error {
-	cartID, err := c.IntParam("cartID")
+func (h *RouteHandler) Checkout(c *fiber.Ctx) error {
+	cartID, err := c.ParamsInt("cartID")
 
 	if err != nil {
-		return c.BadRequest(err)
+		return c.Status(http.StatusBadRequest).SendString(err.Error())
 	}
 
-	cart, err := h.usecase.Checkout(c.RequestContext(), cartID)
+	cart, err := h.usecase.Checkout(c.Context(), cartID)
 
 	if err != nil {
 		return err
 	}
 
-	return c.OK().JSON(cart)
+	return c.Status(http.StatusOK).JSON(cart)
 }
