@@ -76,6 +76,7 @@ Projections can be updated in near real-time as events are processed, ensuring t
 
 ## Further ideas
 - [x] Write a round-robin load balancer
+- [ ] React front end
 - [ ] Write unit tests at every layer of the stack
   - [x] aggregate unit tests
   - [ ] route handler unit tests
