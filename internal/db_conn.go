@@ -4,28 +4,25 @@ import (
 	"context"
 	"es/internal/util"
 	"fmt"
+	"os"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const (
-	// DBConnString is the connection string for the database.
-	// Warning: Do not hardcode credentials in production code.
-	DBConnString = "postgres://myuser:mypassword@localhost:15432/mydatabase"
-)
-
 func MustDBConn(ctx context.Context) *pgx.Conn {
+	DBConnString := os.Getenv("PG_CONNSTRING")
 	return util.Must(pgx.Connect(ctx, DBConnString))
 }
 
 func MustDBPool(ctx context.Context) *pgxpool.Pool {
-	return util.Must(DBPool(ctx))
+	DBConnString := os.Getenv("PG_CONNSTRING")
+	return util.Must(DBPool(ctx, DBConnString))
 }
 
-func DBPool(ctx context.Context) (*pgxpool.Pool, error) {
+func DBPool(ctx context.Context, connString string) (*pgxpool.Pool, error) {
 	// Initialize the connection pool
-	pool, err := pgxpool.New(ctx, DBConnString)
+	pool, err := pgxpool.New(ctx, connString)
 
 	if err != nil {
 		return nil, fmt.Errorf("Unable to connect to database: %s", err)
