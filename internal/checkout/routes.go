@@ -10,12 +10,12 @@ import (
 )
 
 type RouteHandler struct {
-	usecase *ShoppingCartUseCase
+	usecase *CheckoutUseCase
 }
 
 func NewShoppingCartHandler(repository CartRepository, eventStream *es.EventStream) *fiber.App {
 	h := &RouteHandler{
-		usecase: NewShoppingCartUseCase(repository),
+		usecase: NewCheckoutUseCase(repository),
 	}
 
 	app := fiber.New()

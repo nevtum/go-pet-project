@@ -2,17 +2,17 @@ package checkout
 
 import "context"
 
-type ShoppingCartUseCase struct {
+type CheckoutUseCase struct {
 	repository CartRepository
 }
 
-func NewShoppingCartUseCase(repository CartRepository) *ShoppingCartUseCase {
-	return &ShoppingCartUseCase{
+func NewCheckoutUseCase(repository CartRepository) *CheckoutUseCase {
+	return &CheckoutUseCase{
 		repository: repository,
 	}
 }
 
-func (u *ShoppingCartUseCase) GetCartDetails(ctx context.Context, cartID int) (*CartAggregate, error) {
+func (u *CheckoutUseCase) GetCartDetails(ctx context.Context, cartID int) (*CartAggregate, error) {
 	cart, err := u.repository.Get(ctx, cartID)
 
 	if err != nil {
@@ -30,7 +30,7 @@ func (u *ShoppingCartUseCase) GetCartDetails(ctx context.Context, cartID int) (*
 	return cart, nil
 }
 
-func (u *ShoppingCartUseCase) AddItemToCart(ctx context.Context, cartID int, itemID int) (*CartAggregate, error) {
+func (u *CheckoutUseCase) AddItemToCart(ctx context.Context, cartID int, itemID int) (*CartAggregate, error) {
 	cart, err := u.repository.Get(ctx, cartID)
 
 	if err != nil {
@@ -48,7 +48,7 @@ func (u *ShoppingCartUseCase) AddItemToCart(ctx context.Context, cartID int, ite
 	return cart, nil
 }
 
-func (u *ShoppingCartUseCase) RemoveItemFromCart(ctx context.Context, cartID int, itemID int) (*CartAggregate, error) {
+func (u *CheckoutUseCase) RemoveItemFromCart(ctx context.Context, cartID int, itemID int) (*CartAggregate, error) {
 	cart, err := u.repository.Get(ctx, cartID)
 
 	if err != nil {
@@ -65,7 +65,7 @@ func (u *ShoppingCartUseCase) RemoveItemFromCart(ctx context.Context, cartID int
 	return cart, nil
 }
 
-func (u *ShoppingCartUseCase) Checkout(ctx context.Context, cartID int) (*CartAggregate, error) {
+func (u *CheckoutUseCase) Checkout(ctx context.Context, cartID int) (*CartAggregate, error) {
 	cart, err := u.repository.Get(ctx, cartID)
 
 	if err != nil {
