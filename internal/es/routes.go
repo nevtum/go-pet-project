@@ -6,17 +6,17 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type EventsRouteHandler struct {
+type RouteHandler struct {
 	eventStream *EventStream
 }
 
-func NewEventsRouteHandler(eventStream *EventStream) *EventsRouteHandler {
-	return &EventsRouteHandler{
+func NewRouteHandler(eventStream *EventStream) *RouteHandler {
+	return &RouteHandler{
 		eventStream: eventStream,
 	}
 }
 
-func (h *EventsRouteHandler) AggregateEvents(c *fiber.Ctx) error {
+func (h *RouteHandler) AggregateEvents(c *fiber.Ctx) error {
 	aggType := c.Params("aggType")
 
 	if aggType == "" {

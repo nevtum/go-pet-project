@@ -14,15 +14,15 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type AuthRouteHandlers struct {
+type RouteHandler struct {
 	cfg      *Config
 	oauthCfg oauth2.Config
 }
 
-func NewAuthRouteHandlers(cfg *Config) *AuthRouteHandlers {
+func NewRouteHandler(cfg *Config) *RouteHandler {
 	provider := util.Must(oidc.NewProvider(context.Background(), cfg.IssuerURL))
 
-	return &AuthRouteHandlers{
+	return &RouteHandler{
 		cfg: cfg,
 		oauthCfg: oauth2.Config{
 			ClientID:     cfg.ClientID,
@@ -34,13 +34,13 @@ func NewAuthRouteHandlers(cfg *Config) *AuthRouteHandlers {
 	}
 }
 
-func (h *AuthRouteHandlers) Login(c *fiber.Ctx) error {
+func (h *RouteHandler) Login(c *fiber.Ctx) error {
 	state := "state" // Replace with a secure random string in production
 	url := h.oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	return c.Redirect(url, http.StatusFound)
 }
 
-func (h *AuthRouteHandlers) Logout(c *fiber.Ctx) error {
+func (h *RouteHandler) Logout(c *fiber.Ctx) error {
 	// Implement logout logic here
 	tmpl := `
     <html>
@@ -55,7 +55,7 @@ func (h *AuthRouteHandlers) Logout(c *fiber.Ctx) error {
 	return c.SendString(tmpl)
 }
 
-func (h *AuthRouteHandlers) Callback(c *fiber.Ctx) error {
+func (h *RouteHandler) Callback(c *fiber.Ctx) error {
 	code := c.Query("code")
 
 	// Exchange the authorization code for a token

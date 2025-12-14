@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"es/internal"
-	"es/internal/checkout"
-	"es/internal/es"
 	"fmt"
 	"log"
 	"os"
@@ -24,9 +22,8 @@ func init() {
 func runServer(port int) {
 	ctx := context.Background()
 	pool := internal.MustDBPool(ctx)
-	repo := checkout.NewPGCartRepository(pool)
-	stream := es.NewEventStream(pool)
-	app := checkout.NewShoppingCartHandler(repo, stream)
+
+	app := internal.NewApi(pool)
 
 	log.Fatal(app.Listen(fmt.Sprintf(":%d", port)))
 }

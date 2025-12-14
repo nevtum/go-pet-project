@@ -1,58 +1,19 @@
 package checkout
 
 import (
-	"es/internal/authentication"
-	"es/internal/es"
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/healthcheck"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 )
 
 type RouteHandler struct {
 	usecase *CheckoutUseCase
 }
 
-func NewShoppingCartHandler(repository CartRepository, eventStream *es.EventStream) *fiber.App {
-	h := &RouteHandler{
-		usecase: NewCheckoutUseCase(repository),
+func NewRouteHandler(usecase *CheckoutUseCase) *RouteHandler {
+	return &RouteHandler{
+		usecase: usecase,
 	}
-
-	app := fiber.New()
-	app.Use(healthcheck.New(healthcheck.Config{
-		LivenessProbe: func(c *fiber.Ctx) bool {
-			return true
-		},
-		LivenessEndpoint: "/livez",
-		ReadinessProbe: func(c *fiber.Ctx) bool {
-			return true
-		},
-		ReadinessEndpoint: "/readyz",
-	}))
-	app.Use(logger.New())
-
-	cfg := authentication.LoadConfig()
-	authHandlers := authentication.NewAuthRouteHandlers(cfg)
-
-	app.Get("/login", authHandlers.Login)
-	app.Get("/logout", authHandlers.Logout)
-	app.Get("/callback", authHandlers.Callback)
-
-	authMW := authentication.AuthMiddleware()
-
-	api := app.Group("/cart", authMW)
-	api.Get("/:cartID", h.GetCartDetails)
-	api.Get("/:cartID/:itemID", h.AddItem)
-	api.Get("/:cartID/:itemID/delete", h.RemoveItem)
-	api.Post("/:cartID/checkout", h.Checkout)
-
-	eventsApi := app.Group("/events")
-
-	eHandler := es.NewEventsRouteHandler(eventStream)
-	eventsApi.Get("/:aggType/:aggID", eHandler.AggregateEvents)
-
-	return app
 }
 
 func (h *RouteHandler) GetCartDetails(c *fiber.Ctx) error {
