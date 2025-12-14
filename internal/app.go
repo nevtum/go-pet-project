@@ -4,6 +4,7 @@ import (
 	"es/internal/authentication"
 	"es/internal/checkout"
 	"es/internal/es"
+	v2 "es/internal/inventory/v2"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/healthcheck"
@@ -44,6 +45,12 @@ func NewApi(pool *pgxpool.Pool) *fiber.App {
 	api.Get("/:cartID/:itemID", h.AddItem)
 	api.Get("/:cartID/:itemID/delete", h.RemoveItem)
 	api.Post("/:cartID/checkout", h.Checkout)
+
+	invRepo := v2.NewPGItemCountRepository(pool)
+	invHandler := v2.NewRouteHandler(invRepo)
+
+	inventoryApi := app.Group("/inventory/v2", authMW)
+	inventoryApi.Get("/", invHandler.Get)
 
 	eventsApi := app.Group("/events")
 
