@@ -10,7 +10,16 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/joho/godotenv"
 )
+
+func init() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("failed to load .env file: %v", err)
+	}
+}
 
 func runServer(port int) {
 	ctx := context.Background()

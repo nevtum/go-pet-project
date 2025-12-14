@@ -1,6 +1,7 @@
 package checkout
 
 import (
+	"es/internal/authentication"
 	"es/internal/es"
 	"net/http"
 
@@ -31,7 +32,16 @@ func NewShoppingCartHandler(repository CartRepository, eventStream *es.EventStre
 	}))
 	app.Use(logger.New())
 
-	api := app.Group("/cart")
+	cfg := authentication.LoadConfig()
+	authHandlers := authentication.NewAuthRouteHandlers(cfg)
+
+	app.Get("/login", authHandlers.Login)
+	app.Get("/logout", authHandlers.Logout)
+	app.Get("/callback", authHandlers.Callback)
+
+	authMW := authentication.AuthMiddleware()
+
+	api := app.Group("/cart", authMW)
 	api.Get("/:cartID", h.GetCartDetails)
 	api.Get("/:cartID/:itemID", h.AddItem)
 	api.Get("/:cartID/:itemID/delete", h.RemoveItem)
