@@ -35,7 +35,7 @@ func NewApi(pool *pgxpool.Pool) *fiber.App {
 	app.Get("/logout", authHandlers.Logout)
 	app.Get("/callback", authHandlers.Callback)
 
-	authMW := authentication.AuthMiddleware()
+	authMW := authentication.AuthMiddleware(cfg)
 	repo := checkout.NewPGCartRepository(pool)
 	usecase := checkout.NewCheckoutUseCase(repo)
 	h := checkout.NewRouteHandler(usecase)
@@ -58,5 +58,4 @@ func NewApi(pool *pgxpool.Pool) *fiber.App {
 	eventsApi.Get("/:aggType/:aggID", eHandler.AggregateEvents)
 
 	return app
-
 }

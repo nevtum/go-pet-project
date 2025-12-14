@@ -86,7 +86,7 @@ Projections can be updated in near real-time as events are processed, ensuring t
 - [ ] Load testing script to simulate high traffic scenarios
 - [ ] CI/CD Github Action workflows
 - [x] OAuth login
-- [ ] OAuth Middleware (Cognito)
+- [x] OAuth Middleware (Cognito)
 
 ## Conclusion
 
