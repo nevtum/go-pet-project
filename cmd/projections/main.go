@@ -8,12 +8,22 @@ import (
 	v2 "es/internal/inventory/v2"
 	"es/internal/util"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/joho/godotenv"
 )
+
+func init() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("failed to load .env file: %v", err)
+	}
+}
 
 func main() {
 	ctx := context.Background()
