@@ -87,6 +87,12 @@ Projections can be updated in near real-time as events are processed, ensuring t
 - [ ] CI/CD Github Action workflows
 - [x] OAuth login
 - [x] OAuth Middleware (Cognito)
+- [ ] Observability
+  - [x] Prometheus /metrics endpoint
+  - [ ] Custom Prometheus metrics
+  - [ ] JSON logs for Loki
+  - [ ] Grafana dashboard
+  - [ ] OpenTelemetry tracing
 
 ## Conclusion
 
