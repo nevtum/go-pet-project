@@ -7,15 +7,20 @@ import (
 	v2 "es/internal/inventory/v2"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/healthcheck"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func NewApi(pool *pgxpool.Pool) *fiber.App {
 	eventStream := es.NewEventStream(pool)
 
 	app := fiber.New()
+
+	app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
+
 	app.Use(healthcheck.New(healthcheck.Config{
 		LivenessProbe: func(c *fiber.Ctx) bool {
 			return true
