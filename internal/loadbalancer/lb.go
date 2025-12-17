@@ -14,10 +14,11 @@ import (
 )
 
 type Server struct {
-	URL       *url.URL
-	proxy     *httputil.ReverseProxy
-	IsHealthy bool
-	mu        sync.Mutex
+	URL            *url.URL
+	proxy          *httputil.ReverseProxy
+	IsHealthy      bool
+	FailedAttempts int
+	mu             sync.Mutex
 }
 
 func (s *Server) ReadinessProbe(ctx context.Context) {
@@ -29,14 +30,19 @@ func (s *Server) ReadinessProbe(ctx context.Context) {
 	res := httptest.NewRecorder()
 	s.ServeHTTP(res, request)
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if res.Code != http.StatusOK {
 		s.IsHealthy = false
+		s.FailedAttempts++
 		fmt.Printf("server %s is unhealthy\n", s.URL.String())
 		return
 	}
 
 	fmt.Printf("server %s is healthy\n", s.URL.String())
 	s.IsHealthy = true
+	s.FailedAttempts = 0
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -74,30 +80,13 @@ func NewLoadBalancer(healthCheckInterval time.Duration, quitCh chan os.Signal) *
 }
 
 func (lb *LoadBalancer) RegisterServer(rawURL string) error {
-	lb.mu.Lock()
-	defer lb.mu.Unlock()
-
 	// Validate URL
 	parsedURL, err := url.ParseRequestURI(rawURL)
 	if err != nil {
 		return fmt.Errorf("invalid URL format: %w", err)
 	}
 
-	// Check for duplicate servers
-	for _, existing := range lb.servers {
-		if existing.URL.String() == rawURL {
-			return fmt.Errorf("server URL already exists: %s", rawURL)
-		}
-	}
-
-	// Create and add new server
-	newServer := NewServer(parsedURL)
-	lb.servers = append(lb.servers, newServer)
-
-	// Run initial health check
-	go lb.serverHealthCheck(newServer)
-
-	return nil
+	return lb.add(parsedURL)
 }
 
 func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -162,12 +151,49 @@ func (lb *LoadBalancer) serverHealthCheck(server *Server) {
 		case <-lb.quitCh:
 			return
 		case <-ticker.C:
-			lb.mu.Lock()
 			ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
 			server.ReadinessProbe(ctx)
-			lb.mu.Unlock()
+			if server.FailedAttempts >= 3 {
+				lb.remove(server)
+				return
+			}
 		}
 	}
+}
+
+func (lb *LoadBalancer) add(parsedURL *url.URL) error {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+
+	// Check for duplicate servers
+	for _, existing := range lb.servers {
+		if existing.URL.String() == parsedURL.String() {
+			return fmt.Errorf("server URL already exists: %s", parsedURL.String())
+		}
+	}
+
+	// Create and add new server
+	newServer := NewServer(parsedURL)
+	lb.servers = append(lb.servers, newServer)
+
+	// Run initial health check
+	go lb.serverHealthCheck(newServer)
+	return nil
+
+}
+
+func (lb *LoadBalancer) remove(server *Server) {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	// Find matching server by url and remove
+	for i, s := range lb.servers {
+		if s.URL.String() == server.URL.String() {
+			lb.servers = append(lb.servers[:i], lb.servers[i+1:]...)
+			fmt.Printf("server %s removed from liveness checks\n", server.URL.String())
+			return
+		}
+	}
+	panic("server not found for removal")
 }
 
 func (lb *LoadBalancer) roundRobinNextServer() *Server {

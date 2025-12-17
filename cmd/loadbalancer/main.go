@@ -34,4 +34,5 @@ func main() {
 	fmt.Println("Load Balancer started on port 8080")
 
 	<-signalCh
+	fmt.Println("Load Balancer stopped")
 }
