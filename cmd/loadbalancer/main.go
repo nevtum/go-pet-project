@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"es/internal/loadbalancer"
 	"es/internal/util"
 	"fmt"
@@ -12,9 +11,11 @@ import (
 	"time"
 )
 
-func runLoadBalancer(ctx context.Context, urls ...string) {
-	lb := loadbalancer.MustNewLoadBalancer(2*time.Second, urls...)
-	lb.RunHealthCheckLoop(ctx)
+func runLoadBalancer(quitCh chan os.Signal, urls ...string) {
+	lb := loadbalancer.NewLoadBalancer(2*time.Second, quitCh)
+	for _, rawURL := range urls {
+		util.MustSucceed(lb.RegisterServer(rawURL))
+	}
 
 	util.MustSucceed(http.ListenAndServe(":8080", lb))
 }
@@ -26,14 +27,11 @@ func main() {
 		"http://localhost:5003",
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go runLoadBalancer(ctx, urls...)
-
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGTERM, syscall.SIGINT)
 
+	go runLoadBalancer(signalCh, urls...)
 	fmt.Println("Load Balancer started on port 8080")
 
 	<-signalCh
-	cancel()
 }

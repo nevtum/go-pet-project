@@ -2,12 +2,13 @@ package loadbalancer
 
 import (
 	"context"
-	"es/internal/util"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 )
@@ -50,43 +51,63 @@ func NewServer(URL *url.URL) *Server {
 	}
 }
 
+type ServerRegistrationRequest struct {
+	URL string `json:"url"`
+}
+
 type LoadBalancer struct {
 	healthCheckInterval time.Duration
 	servers             []*Server
 	idx                 int
-	mu                  sync.Mutex
+	mu                  sync.RWMutex
+	quitCh              chan os.Signal
 }
 
-func MustNewLoadBalancer(healthCheckInterval time.Duration, urls ...string) *LoadBalancer {
-	return util.Must(NewLoadBalancer(healthCheckInterval, urls...))
-}
-
-func NewLoadBalancer(healthCheckInterval time.Duration, urls ...string) (*LoadBalancer, error) {
-	servers := []*Server{}
-	for _, rawURL := range urls {
-		URL, err := url.Parse(rawURL)
-		if err != nil {
-			return nil, err
-		}
-
-		servers = append(servers, NewServer(URL))
-	}
-
+func NewLoadBalancer(healthCheckInterval time.Duration, quitCh chan os.Signal) *LoadBalancer {
 	lb := &LoadBalancer{
 		healthCheckInterval: healthCheckInterval,
-		servers:             servers,
+		servers:             []*Server{},
+		quitCh:              quitCh,
 	}
 
-	return lb, nil
+	return lb
 }
 
-func (lb *LoadBalancer) RunHealthCheckLoop(ctx context.Context) {
-	for _, server := range lb.servers {
-		go lb.serverHealthCheck(ctx, server)
+func (lb *LoadBalancer) RegisterServer(rawURL string) error {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+
+	// Validate URL
+	parsedURL, err := url.ParseRequestURI(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL format: %w", err)
 	}
+
+	// Check for duplicate servers
+	for _, existing := range lb.servers {
+		if existing.URL.String() == rawURL {
+			return fmt.Errorf("server URL already exists: %s", rawURL)
+		}
+	}
+
+	// Create and add new server
+	newServer := NewServer(parsedURL)
+	lb.servers = append(lb.servers, newServer)
+
+	// Run initial health check
+	go lb.serverHealthCheck(newServer)
+
+	return nil
 }
 
 func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Check for registration endpoint
+	if r.Method == http.MethodPost && r.URL.Path == "/register" {
+		lb.handleRegisterEndpoint(w, r)
+		return
+	}
+
+	// Fallback to load balancing
 	server := lb.roundRobinNextServer()
 
 	if server == nil {
@@ -98,16 +119,51 @@ func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	server.ServeHTTP(w, r)
 }
 
-func (lb *LoadBalancer) serverHealthCheck(ctx context.Context, server *Server) {
+func (lb *LoadBalancer) handleRegisterEndpoint(w http.ResponseWriter, r *http.Request) {
+	// Validate content type
+	if r.Header.Get("Content-Type") != "application/json" {
+		http.Error(w, "Content-Type must be application/json", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body
+	var payload ServerRegistrationRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Register server
+	err := lb.RegisterServer(payload.URL)
+	if err != nil {
+		switch {
+		case err.Error() == fmt.Sprintf("server URL already exists: %s", payload.URL):
+			http.Error(w, err.Error(), http.StatusConflict)
+		default:
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	// Respond with success
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "Server registered successfully",
+		"url":    payload.URL,
+	})
+}
+
+func (lb *LoadBalancer) serverHealthCheck(server *Server) {
 	ticker := time.NewTicker(lb.healthCheckInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-lb.quitCh:
 			return
 		case <-ticker.C:
 			lb.mu.Lock()
+			ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
 			server.ReadinessProbe(ctx)
 			lb.mu.Unlock()
 		}
@@ -115,8 +171,8 @@ func (lb *LoadBalancer) serverHealthCheck(ctx context.Context, server *Server) {
 }
 
 func (lb *LoadBalancer) roundRobinNextServer() *Server {
-	lb.mu.Lock()
-	defer lb.mu.Unlock()
+	lb.mu.RLock()
+	defer lb.mu.RUnlock()
 
 	for i := 0; i < len(lb.servers); i++ {
 		idx := lb.idx % len(lb.servers)
