@@ -79,7 +79,7 @@ func NewLoadBalancer(healthCheckInterval time.Duration, quitCh chan os.Signal) *
 	return lb
 }
 
-func (lb *LoadBalancer) RegisterServer(rawURL string) error {
+func (lb *LoadBalancer) registerServer(rawURL string) error {
 	// Validate URL
 	parsedURL, err := url.ParseRequestURI(rawURL)
 	if err != nil {
@@ -123,7 +123,7 @@ func (lb *LoadBalancer) handleRegisterEndpoint(w http.ResponseWriter, r *http.Re
 	}
 
 	// Register server
-	err := lb.RegisterServer(payload.URL)
+	err := lb.registerServer(payload.URL)
 	if err != nil {
 		switch {
 		case err.Error() == fmt.Sprintf("server URL already exists: %s", payload.URL):
