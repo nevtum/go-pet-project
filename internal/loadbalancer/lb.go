@@ -79,16 +79,6 @@ func NewLoadBalancer(healthCheckInterval time.Duration, quitCh chan os.Signal) *
 	return lb
 }
 
-func (lb *LoadBalancer) registerServer(rawURL string) error {
-	// Validate URL
-	parsedURL, err := url.ParseRequestURI(rawURL)
-	if err != nil {
-		return fmt.Errorf("invalid URL format: %w", err)
-	}
-
-	return lb.add(parsedURL)
-}
-
 func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Check for registration endpoint
 	if r.Method == http.MethodPost && r.URL.Path == "/register" {
@@ -142,23 +132,14 @@ func (lb *LoadBalancer) handleRegisterEndpoint(w http.ResponseWriter, r *http.Re
 	})
 }
 
-func (lb *LoadBalancer) serverHealthCheck(server *Server) {
-	ticker := time.NewTicker(lb.healthCheckInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-lb.quitCh:
-			return
-		case <-ticker.C:
-			ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
-			server.ReadinessProbe(ctx)
-			if server.FailedAttempts >= 3 {
-				lb.remove(server)
-				return
-			}
-		}
+func (lb *LoadBalancer) registerServer(rawURL string) error {
+	// Validate URL
+	parsedURL, err := url.ParseRequestURI(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL format: %w", err)
 	}
+
+	return lb.add(parsedURL)
 }
 
 func (lb *LoadBalancer) add(parsedURL *url.URL) error {
@@ -180,6 +161,25 @@ func (lb *LoadBalancer) add(parsedURL *url.URL) error {
 	go lb.serverHealthCheck(newServer)
 	return nil
 
+}
+
+func (lb *LoadBalancer) serverHealthCheck(server *Server) {
+	ticker := time.NewTicker(lb.healthCheckInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-lb.quitCh:
+			return
+		case <-ticker.C:
+			ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+			server.ReadinessProbe(ctx)
+			if server.FailedAttempts >= 3 {
+				lb.remove(server)
+				return
+			}
+		}
+	}
 }
 
 func (lb *LoadBalancer) remove(server *Server) {
