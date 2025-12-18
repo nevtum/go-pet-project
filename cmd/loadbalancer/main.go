@@ -12,7 +12,7 @@ import (
 )
 
 func runLoadBalancer(quitCh chan os.Signal) {
-	lb := loadbalancer.NewLoadBalancer(2*time.Second, quitCh)
+	lb := loadbalancer.NewLoadBalancer(5*time.Second, quitCh)
 	util.MustSucceed(http.ListenAndServe(":8080", lb))
 }
 
