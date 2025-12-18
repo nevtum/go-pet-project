@@ -5,57 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"sync"
 	"time"
 )
-
-type Server struct {
-	URL            *url.URL
-	proxy          *httputil.ReverseProxy
-	IsHealthy      bool
-	FailedAttempts int
-	mu             sync.Mutex
-}
-
-func (s *Server) ReadinessProbe(ctx context.Context) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "/readyz", nil)
-	if err != nil {
-		fmt.Printf("error creating request: %v\n", err)
-		return
-	}
-	res := httptest.NewRecorder()
-	s.ServeHTTP(res, request)
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if res.Code != http.StatusOK {
-		s.IsHealthy = false
-		s.FailedAttempts++
-		fmt.Printf("server %s is unhealthy\n", s.URL.String())
-		return
-	}
-
-	fmt.Printf("server %s is healthy\n", s.URL.String())
-	s.IsHealthy = true
-	s.FailedAttempts = 0
-}
-
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.proxy.ServeHTTP(w, r)
-}
-
-func NewServer(URL *url.URL) *Server {
-	return &Server{
-		URL:       URL,
-		proxy:     httputil.NewSingleHostReverseProxy(URL),
-		IsHealthy: true,
-	}
-}
 
 type ServerRegistrationRequest struct {
 	URL string `json:"url"`
