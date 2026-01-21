@@ -1,19 +1,11 @@
 package authentication
 
 import (
+	"es/internal/cache"
 	"os"
 	"strconv"
 	"time"
 )
-
-// Caching configuration
-type RedisConfig struct {
-	Addr         string
-	Password     string
-	DB           int
-	PoolSize     int
-	AuthCacheTTL time.Duration
-}
 
 type Config struct {
 	ClientID     string
@@ -21,10 +13,11 @@ type Config struct {
 	RedirectURL  string
 	IssuerURL    string
 	JWKSURL      string
-	Redis        RedisConfig
+	Redis        cache.RedisConfig
+	AuthCacheTTL time.Duration
 }
 
-func LoadConfig() *Config {
+func LoadConfig() Config {
 	clientID := os.Getenv("CLIENT_ID")
 	clientSecret := os.Getenv("CLIENT_SECRET")
 	redirectURL := os.Getenv("REDIRECT_URL")
@@ -61,18 +54,18 @@ func LoadConfig() *Config {
 		}
 	}
 
-	return &Config{
+	return Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		RedirectURL:  redirectURL,
 		IssuerURL:    issuerURL,
 		JWKSURL:      jwksURL,
-		Redis: RedisConfig{
-			Addr:         redisAddr,
-			Password:     redisPassword,
-			DB:           redisDB,
-			PoolSize:     redisPoolSize,
-			AuthCacheTTL: cacheTTL,
+		AuthCacheTTL: cacheTTL,
+		Redis: cache.RedisConfig{
+			Addr:     redisAddr,
+			Password: redisPassword,
+			DB:       redisDB,
+			PoolSize: redisPoolSize,
 		},
 	}
 }

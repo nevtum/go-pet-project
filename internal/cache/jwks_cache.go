@@ -16,12 +16,7 @@ import (
 // RedisClient interface abstracts Redis operations for testing
 type RedisClient interface {
 	Get(ctx context.Context, key string) *redis.StringCmd
-	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
-	Del(ctx context.Context, keys ...string) *redis.IntCmd
-	TTL(ctx context.Context, key string) *redis.DurationCmd
-	StrLen(ctx context.Context, key string) *redis.IntCmd
-	Ping(ctx context.Context) *redis.StatusCmd
-	Close() error
+	Set(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd
 }
 
 // JWKSCache provides Redis-backed caching for JWKS with HTTP fallback.
@@ -152,36 +147,4 @@ func (j *JWKSCache) fetchFromHTTP(ctx context.Context) (*jose.JSONWebKeySet, err
 	}
 
 	return &keySet, nil
-}
-
-// Clear removes the JWKS from cache (useful for testing and manual refresh).
-func (j *JWKSCache) Clear(ctx context.Context) error {
-	return j.redisClient.Del(ctx, j.GetCacheKey()).Err()
-}
-
-// GetCacheStatus returns cache diagnostics (useful for monitoring).
-type CacheStatus struct {
-	CacheKey  string
-	TTL       time.Duration
-	IsCached  bool
-	CacheSize int64 // bytes
-}
-
-// Status retrieves cache diagnostics.
-func (j *JWKSCache) Status(ctx context.Context) (*CacheStatus, error) {
-	cacheKey := j.GetCacheKey()
-	ttl, _ := j.redisClient.TTL(ctx, cacheKey).Result()
-
-	status := &CacheStatus{
-		CacheKey: cacheKey,
-		TTL:      ttl,
-		IsCached: ttl > 0,
-	}
-
-	if ttl > 0 {
-		size, _ := j.redisClient.StrLen(ctx, cacheKey).Result()
-		status.CacheSize = size
-	}
-
-	return status, nil
 }

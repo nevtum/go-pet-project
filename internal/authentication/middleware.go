@@ -22,24 +22,14 @@ import (
 //  2. Validates claims (expiration, issuer, audience)
 //  3. Retrieves JWKS from Redis cache or HTTP endpoint
 //  4. Verifies token signature against cached keys
-func AuthMiddleware(cfg *Config) (fiber.Handler, error) {
+func AuthMiddleware(cfg Config) (fiber.Handler, error) {
 	// Initialize Redis client for JWKS caching
-	redisClient, err := cache.NewRedisClient(cache.ClientConfig{
-		Addr:         cfg.Redis.Addr,
-		Password:     cfg.Redis.Password,
-		DB:           cfg.Redis.DB,
-		PoolSize:     cfg.Redis.PoolSize,
-		MinIdleConns: 5,
-		MaxRetries:   3,
-		DialTimeout:  5 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
-	})
+	redisClient, err := cache.NewRedisClient(cfg.Redis)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Redis client: %w", err)
 	}
 
-	jwksCache := cache.NewJWKSCache(redisClient, cfg.JWKSURL, cfg.Redis.AuthCacheTTL)
+	jwksCache := cache.NewJWKSCache(redisClient, cfg.JWKSURL, cfg.AuthCacheTTL)
 	verifyer := newVerifyer(cfg, jwksCache)
 
 	return func(c *fiber.Ctx) error {
@@ -63,11 +53,11 @@ func AuthMiddleware(cfg *Config) (fiber.Handler, error) {
 }
 
 type verifyer struct {
-	cfg       *Config
+	cfg       Config
 	jwksCache *cache.JWKSCache
 }
 
-func newVerifyer(cfg *Config, jwksCache *cache.JWKSCache) *verifyer {
+func newVerifyer(cfg Config, jwksCache *cache.JWKSCache) *verifyer {
 	return &verifyer{
 		cfg:       cfg,
 		jwksCache: jwksCache,

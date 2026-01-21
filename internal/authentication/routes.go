@@ -15,11 +15,11 @@ import (
 )
 
 type RouteHandler struct {
-	cfg      *Config
+	cfg      Config
 	oauthCfg oauth2.Config
 }
 
-func NewRouteHandler(cfg *Config) *RouteHandler {
+func NewRouteHandler(cfg Config) *RouteHandler {
 	provider := util.Must(oidc.NewProvider(context.Background(), cfg.IssuerURL))
 
 	return &RouteHandler{
