@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"es/internal/cache"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"gopkg.in/go-jose/go-jose.v2"
@@ -24,10 +25,10 @@ import (
 func AuthMiddleware(cfg *Config) (fiber.Handler, error) {
 	// Initialize Redis client for JWKS caching
 	redisClient, err := cache.NewRedisClient(cache.ClientConfig{
-		Addr:         cfg.RedisAddr,
-		Password:     cfg.RedisPassword,
-		DB:           cfg.RedisDB,
-		PoolSize:     cfg.RedisPoolSize,
+		Addr:         cfg.Redis.Addr,
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		PoolSize:     cfg.Redis.PoolSize,
 		MinIdleConns: 5,
 		MaxRetries:   3,
 		DialTimeout:  5 * time.Second,
@@ -38,8 +39,7 @@ func AuthMiddleware(cfg *Config) (fiber.Handler, error) {
 		return nil, fmt.Errorf("failed to initialize Redis client: %w", err)
 	}
 
-	// Initialize JWKS cache with 12-hour TTL
-	jwksCache := cache.NewJWKSCache(redisClient, cfg.JWKSURL, cfg.CacheTTL)
+	jwksCache := cache.NewJWKSCache(redisClient, cfg.JWKSURL, cfg.Redis.AuthCacheTTL)
 	verifyer := newVerifyer(cfg, jwksCache)
 
 	return func(c *fiber.Ctx) error {

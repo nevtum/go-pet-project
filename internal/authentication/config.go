@@ -6,18 +6,22 @@ import (
 	"time"
 )
 
+// Caching configuration
+type RedisConfig struct {
+	Addr         string
+	Password     string
+	DB           int
+	PoolSize     int
+	AuthCacheTTL time.Duration
+}
+
 type Config struct {
 	ClientID     string
 	ClientSecret string
 	RedirectURL  string
 	IssuerURL    string
 	JWKSURL      string
-	// Redis caching configuration
-	RedisAddr     string
-	RedisPassword string
-	RedisDB       int
-	RedisPoolSize int
-	CacheTTL      time.Duration
+	Redis        RedisConfig
 }
 
 func LoadConfig() *Config {
@@ -58,15 +62,17 @@ func LoadConfig() *Config {
 	}
 
 	return &Config{
-		ClientID:      clientID,
-		ClientSecret:  clientSecret,
-		RedirectURL:   redirectURL,
-		IssuerURL:     issuerURL,
-		JWKSURL:       jwksURL,
-		RedisAddr:     redisAddr,
-		RedisPassword: redisPassword,
-		RedisDB:       redisDB,
-		RedisPoolSize: redisPoolSize,
-		CacheTTL:      cacheTTL,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURL,
+		IssuerURL:    issuerURL,
+		JWKSURL:      jwksURL,
+		Redis: RedisConfig{
+			Addr:         redisAddr,
+			Password:     redisPassword,
+			DB:           redisDB,
+			PoolSize:     redisPoolSize,
+			AuthCacheTTL: cacheTTL,
+		},
 	}
 }
