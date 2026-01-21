@@ -64,7 +64,14 @@ func (j *JWKSCache) GetJWKS(ctx context.Context) (*jose.JSONWebKeySet, error) {
 
 	// Attempt Redis cache hit
 	val, err := j.redisClient.Get(ctx, cacheKey).Result()
+
 	if err == nil {
+		metrics.IncrementCacheHit()
+		return j.unmarshalJWKS(val)
+	}
+
+	metrics.IncrementCacheMiss()
+	if err != redis.Nil {
 		// Cache hit - deserialize and return
 		return j.unmarshalJWKS(val)
 	}
