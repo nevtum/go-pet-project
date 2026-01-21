@@ -1,6 +1,7 @@
 package authentication
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,13 +9,38 @@ import (
 	"strings"
 	"time"
 
+	"es/internal/cache"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"gopkg.in/go-jose/go-jose.v2"
 )
 
-func AuthMiddleware(cfg *Config) fiber.Handler {
-	verifyer := newVerifyer(cfg)
+// AuthMiddleware creates an authentication middleware with Redis-backed JWKS caching.
+// The middleware:
+//  1. Extracts JWT from Authorization header
+//  2. Validates claims (expiration, issuer, audience)
+//  3. Retrieves JWKS from Redis cache or HTTP endpoint
+//  4. Verifies token signature against cached keys
+func AuthMiddleware(cfg *Config) (fiber.Handler, error) {
+	// Initialize Redis client for JWKS caching
+	redisClient, err := cache.NewRedisClient(cache.ClientConfig{
+		Addr:         cfg.RedisAddr,
+		Password:     cfg.RedisPassword,
+		DB:           cfg.RedisDB,
+		PoolSize:     cfg.RedisPoolSize,
+		MinIdleConns: 5,
+		MaxRetries:   3,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize Redis client: %w", err)
+	}
+
+	// Initialize JWKS cache with 12-hour TTL
+	jwksCache := cache.NewJWKSCache(redisClient, cfg.JWKSURL, cfg.CacheTTL)
+	verifyer := newVerifyer(cfg, jwksCache)
 
 	return func(c *fiber.Ctx) error {
 		tokenString := c.Get("Authorization")
@@ -24,7 +50,7 @@ func AuthMiddleware(cfg *Config) fiber.Handler {
 
 		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 
-		claims, err := verifyer.verifyToken(tokenString)
+		claims, err := verifyer.verifyToken(c.Context(), tokenString)
 		if err != nil {
 			return c.Status(http.StatusUnauthorized).SendString(fmt.Sprintf("Invalid token: %v", err))
 		}
@@ -33,20 +59,22 @@ func AuthMiddleware(cfg *Config) fiber.Handler {
 		c.Locals("user", claims)
 
 		return c.Next()
-	}
+	}, nil
 }
 
 type verifyer struct {
-	cfg *Config
+	cfg       *Config
+	jwksCache *cache.JWKSCache
 }
 
-func newVerifyer(cfg *Config) *verifyer {
+func newVerifyer(cfg *Config, jwksCache *cache.JWKSCache) *verifyer {
 	return &verifyer{
-		cfg: cfg,
+		cfg:       cfg,
+		jwksCache: jwksCache,
 	}
 }
 
-func (v *verifyer) verifyToken(tokenString string) (jwt.MapClaims, error) {
+func (v *verifyer) verifyToken(ctx context.Context, tokenString string) (jwt.MapClaims, error) {
 	// Parse the token without verifying signature first to get key ID
 	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
 	if err != nil {
@@ -70,10 +98,10 @@ func (v *verifyer) verifyToken(tokenString string) (jwt.MapClaims, error) {
 		return nil, errors.New("no key ID found in token")
 	}
 
-	// Fetch and cache JWKS (in a real-world scenario, implement proper caching)
-	keySet, err := fetchJWKS(v.cfg.JWKSURL)
+	// Fetch JWKS from cache (Redis) with HTTP fallback
+	keySet, err := v.jwksCache.GetJWKS(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch JWKS: %v", err)
+		return nil, fmt.Errorf("failed to get JWKS: %v", err)
 	}
 
 	// Verify token signature

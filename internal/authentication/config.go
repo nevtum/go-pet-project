@@ -2,6 +2,8 @@ package authentication
 
 import (
 	"os"
+	"strconv"
+	"time"
 )
 
 type Config struct {
@@ -10,6 +12,12 @@ type Config struct {
 	RedirectURL  string
 	IssuerURL    string
 	JWKSURL      string
+	// Redis caching configuration
+	RedisAddr     string
+	RedisPassword string
+	RedisDB       int
+	RedisPoolSize int
+	CacheTTL      time.Duration
 }
 
 func LoadConfig() *Config {
@@ -19,11 +27,46 @@ func LoadConfig() *Config {
 	issuerURL := os.Getenv("ISSUER_URL")
 	jwksURL := os.Getenv("JWKS_URL")
 
+	// Redis configuration with defaults
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+
+	redisDB := 0
+	if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
+		if db, err := strconv.Atoi(dbStr); err == nil {
+			redisDB = db
+		}
+	}
+
+	redisPoolSize := 10
+	if poolStr := os.Getenv("REDIS_POOL_SIZE"); poolStr != "" {
+		if pool, err := strconv.Atoi(poolStr); err == nil && pool > 0 {
+			redisPoolSize = pool
+		}
+	}
+
+	// Cache TTL: 12 hours recommended by architecture (matches JWKS rotation windows)
+	cacheTTL := 12 * time.Hour
+	if ttlStr := os.Getenv("CACHE_TTL_HOURS"); ttlStr != "" {
+		if hours, err := strconv.Atoi(ttlStr); err == nil && hours > 0 {
+			cacheTTL = time.Duration(hours) * time.Hour
+		}
+	}
+
 	return &Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  redirectURL,
-		IssuerURL:    issuerURL,
-		JWKSURL:      jwksURL,
+		ClientID:      clientID,
+		ClientSecret:  clientSecret,
+		RedirectURL:   redirectURL,
+		IssuerURL:     issuerURL,
+		JWKSURL:       jwksURL,
+		RedisAddr:     redisAddr,
+		RedisPassword: redisPassword,
+		RedisDB:       redisDB,
+		RedisPoolSize: redisPoolSize,
+		CacheTTL:      cacheTTL,
 	}
 }

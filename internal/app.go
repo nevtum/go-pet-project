@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"fmt"
+
 	"es/internal/authentication"
 	"es/internal/checkout"
 	"es/internal/es"
@@ -40,7 +42,10 @@ func NewApi(pool *pgxpool.Pool) *fiber.App {
 	app.Get("/logout", authHandlers.Logout)
 	app.Get("/callback", authHandlers.Callback)
 
-	authMW := authentication.AuthMiddleware(cfg)
+	authMW, err := authentication.AuthMiddleware(cfg)
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize auth middleware: %v", err))
+	}
 	repo := checkout.NewPGCartRepository(pool)
 	usecase := checkout.NewCheckoutUseCase(repo)
 	h := checkout.NewRouteHandler(usecase)
