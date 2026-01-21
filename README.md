@@ -89,7 +89,7 @@ Projections can be updated in near real-time as events are processed, ensuring t
 - [x] OAuth Middleware (Cognito)
 - [ ] Observability
   - [x] Prometheus /metrics endpoint
-  - [ ] Custom Prometheus metrics
+  - [ ] Custom Prometheus metrics (in progress)
   - [ ] JSON logs for Loki
   - [ ] Grafana dashboard
   - [ ] OpenTelemetry tracing
